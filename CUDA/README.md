@@ -39,7 +39,6 @@ Each directory is independent and contains its own implemented version:
         CG - Conjugate Gradient, irregular memory access and communication
         MG - Multi-Grid on a sequence of meshes, long- and short-distance communication, memory intensive
         FT - discrete 3D fast Fourier Transform, all-to-all communication
-    three pseudo applications
 
 
   
