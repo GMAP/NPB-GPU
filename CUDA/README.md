@@ -10,9 +10,7 @@ The NPB kernels with CUDA is supported by
 
 ==================================================================
 
-NAS Parallel Benchmarks in C++, OpenMP, FastFlow, and TBB
-
-Code contributors:
+NAS Parallel Benchmarks code contributors:
 
 Dalvan Griebler
 
