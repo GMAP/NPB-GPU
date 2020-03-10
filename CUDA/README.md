@@ -1,6 +1,6 @@
 # How to Cite our Work
 
-Araujo, G. A. ; Griebler, D. ; Danelutto, M. ; Fernandes, L. G. **Efficient NAS Benchmark Kernels with CUDA**. In: 2020 28th Euromicro International Conference on Parallel, Distributed and Networkbased Processing (PDP), 2020, Västerås. 2020 28th Euromicro International Conference on Parallel, Distributed and Network-based Processing (PDP), 2020.
+Araujo, G. A. ; Griebler, D. ; Danelutto, M. ; Fernandes, L. G. **Efficient NAS Benchmark Kernels with CUDA**. In: 2020 28th Euromicro International Conference on Parallel, Distributed and Networkbased Processing (PDP), 2020, Västerås.
   
 # The NPB Kernels with CUDA
 
