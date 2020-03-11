@@ -1,6 +1,6 @@
 # How to Cite our Work
 
-Araujo, G. A. ; Griebler, D. ; Danelutto, M. ; Fernandes, L. G. **Efficient NAS Benchmark Kernels with CUDA**. In: 2020 28th Euromicro International Conference on Parallel, Distributed and Networkbased Processing (PDP), 2020, Västerås.
+Araujo, G. A. ; Griebler, D. ; Danelutto, M. ; Fernandes, L. G. **Efficient NAS Benchmark Kernels with CUDA**. In: 2020 28th Euromicro International Conference on Parallel, Distributed and Networkbased Processing (PDP), 2020, Västerås. 
   
 # The NPB Kernels with CUDA
 
@@ -10,19 +10,15 @@ The NPB kernels with CUDA is supported by
 
 ==================================================================
 
-NAS Parallel Benchmarks code contributors:
+NAS Parallel Benchmarks code contributors with CUDA are:
 
 Dalvan Griebler
-
-Júnior Löff
 
 Gabriell Araujo
 
 Warning: in case of problems send an email to us:
 
 dalvan.griebler@acad.pucrs.br
-
-junior.loff@acad.pucrs.br
 
 gabriell.araujo@acad.pucrs.br
 
@@ -38,14 +34,13 @@ Each directory is independent and contains its own implemented version:
         MG - Multi-Grid on a sequence of meshes, long- and short-distance communication, memory intensive
         FT - discrete 3D fast Fourier Transform, all-to-all communication
 
-
   
 
 # Software Requiriments
 
   
 
-*Warning: our tests were made with GCC*
+*Warning: our tests were made with GCC and CUDA*
 
   
 
