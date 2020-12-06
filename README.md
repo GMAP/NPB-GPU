@@ -1,12 +1,14 @@
-# How to Cite our Work
+# NAS Parallel Benchmarks for GPU
 
-Araujo, G. A. ; Griebler, D. ; Danelutto, M. ; Fernandes, L. G. **Efficient NAS Benchmark Kernels with CUDA**. In: 2020 28th Euromicro International Conference on Parallel, Distributed and Networkbased Processing (PDP), 2020, Västerås. 
+This is a repository aimed at providing GPU parallel codes with different parallel programming APIs for the NAS Parallel Benchmarks (NPB). You can also contribute with this project, writing issues and pull requests.
+
+## How to cite our work
+
+[DOI](https://doi.org/10.1109/PDP50117.2020.00009) Araujo, G. A.; Griebler, D.; Danelutto, M.; Fernandes, L. G. **Efficient NAS Benchmark Kernels with CUDA**. *28th Euromicro International Conference on Parallel, Distributed and Network-based Processing (PDP)*, Västerås, 2020. 
   
-# The NPB Kernels with CUDA
+## The NPB Kernels with CUDA
 
 The parallel CUDA version was implemented from [NPB-CPP](https://github.com/dalvangriebler/NPB-CPP).
-
-The NPB kernels with CUDA is supported by 
 
 ==================================================================
 
@@ -36,7 +38,7 @@ Each directory is independent and contains its own implemented version:
 
   
 
-# Software Requiriments
+## Software Requiriments
 
   
 
@@ -44,7 +46,7 @@ Each directory is independent and contains its own implemented version:
 
   
 
-# How to Compile
+## How to Compile
 
   
 
@@ -82,13 +84,13 @@ make ep CLASS=B
 
   
 
-# Activating the additional timers
+## Activating the additional timers
 
 NPB3.3.1 includes additional timers for profiling purpose. To activate these timers, create a dummy file 'timer.flag' in the main directory of the NPB.
 
   
 
-# Notes about the convertion
+## Notes about the convertion
 
 - Memory conventions adopted on NPB-CPP turn better the performance of the C++ code, lowering the execution time and memory consumption (on some applications, these conventions turn the performance of the NPB-CPP even better than the original Fortran NPB3.3.1, as for example on BT pseudo-application).  
 
