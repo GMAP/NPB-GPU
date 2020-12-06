@@ -4,11 +4,11 @@ This is a repository aimed at providing GPU parallel codes with different parall
 
 ## How to cite our work
 
-[DOI](https://doi.org/10.1109/PDP50117.2020.00009) Araujo, G. A.; Griebler, D.; Danelutto, M.; Fernandes, L. G. **Efficient NAS Benchmark Kernels with CUDA**. *28th Euromicro International Conference on Parallel, Distributed and Network-based Processing (PDP)*, Västerås, 2020. 
+[DOI](https://doi.org/10.1109/PDP50117.2020.00009) - Araujo, G. A.; Griebler, D.; Danelutto, M.; Fernandes, L. G. **Efficient NAS Benchmark Kernels with CUDA**. *28th Euromicro International Conference on Parallel, Distributed and Network-based Processing (PDP)*, Västerås, 2020. 
   
 ## The NPB Kernels with CUDA
 
-The parallel CUDA version was implemented from [NPB-CPP](https://github.com/dalvangriebler/NPB-CPP).
+The parallel CUDA version was implemented from the serial versaion of [NPB-CPP](https://github.com/dalvangriebler/NPB-CPP).
 
 ==================================================================
 
