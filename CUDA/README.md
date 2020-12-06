@@ -8,7 +8,7 @@ This is a repository aimed at providing GPU parallel codes with different parall
   
 ## The NPB Kernels with CUDA
 
-The parallel CUDA version was implemented from the serial versaion of [NPB-CPP](https://github.com/dalvangriebler/NPB-CPP).
+The parallel CUDA version was implemented from the serial version of [NPB-CPP](https://github.com/GMAP/NPB-CPP).
 
 ==================================================================
 
