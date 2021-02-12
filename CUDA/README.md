@@ -1,11 +1,11 @@
 # NAS Parallel Benchmarks for GPU
 
-This is a repository aimed at providing GPU parallel codes with different parallel programming APIs for the NAS Parallel Benchmarks (NPB). You can also contribute with this project, writing issues and pull requests. :smile:
+This is a repository aimed at providing GPU parallel codes with different parallel APIs for the NAS Parallel Benchmarks ([NPB](https://www.nas.nasa.gov/publications/npb.html)) from a C/C++ version ([NPB-CPP](https://github.com/GMAP/NPB-CPP)). You can also contribute with this project, writing issues and pull requests. :smile:
 
 
-:sound:*News:* CUDA versions for pseudo-applications added and IS improved. :date:-11/Feb/2021
+:sound:*News:* CUDA versions for pseudo-applications added and IS improved. :date:11/Feb/2021
 
-## How to cite our work
+## How to cite our work (:+1:)
 
 [DOI](https://doi.org/10.1109/PDP50117.2020.00009) - Araujo, G. A.; Griebler, D.; Danelutto, M.; Fernandes, L. G. **Efficient NAS Benchmark Kernels with CUDA**. *28th Euromicro International Conference on Parallel, Distributed and Network-based Processing (PDP)*, Västerås, 2020. 
   
