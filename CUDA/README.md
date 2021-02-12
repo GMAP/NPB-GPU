@@ -1,8 +1,9 @@
 # NAS Parallel Benchmarks for GPU
 
-This is a repository aimed at providing GPU parallel codes with different parallel programming APIs for the NAS Parallel Benchmarks (NPB). You can also contribute with this project, writing issues and pull requests.
+This is a repository aimed at providing GPU parallel codes with different parallel programming APIs for the NAS Parallel Benchmarks (NPB). You can also contribute with this project, writing issues and pull requests. :smile:
 
-*News:date:-11/Feb/2021* pseudo-applications CUDA versions added and IS improvements.
+
+:sound:*News:* CUDA versions for pseudo-applications added and IS improved. :date:-11/Feb/2021
 
 ## How to cite our work
 
