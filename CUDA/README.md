@@ -5,7 +5,7 @@ This is a repository aimed at providing GPU parallel codes with different parall
 
 :sound:*News:* CUDA versions for pseudo-applications added and IS improved. :date:11/Feb/2021
 
-## How to cite our work (:+1:)
+## How to cite our work :+1:
 
 [DOI](https://doi.org/10.1109/PDP50117.2020.00009) - Araujo, G. A.; Griebler, D.; Danelutto, M.; Fernandes, L. G. **Efficient NAS Benchmark Kernels with CUDA**. *28th Euromicro International Conference on Parallel, Distributed and Network-based Processing (PDP)*, Västerås, 2020. 
   
@@ -83,7 +83,7 @@ NPB3.3.1 includes additional timers for profiling purpose. To activate these tim
 
 ## Notes about the Fortran to CPP convertion
 
-The following information are also written and keep updated in [NPB-CPP](https://github.com/GMAP/NPB-CPP)
+The following information are also written and keep updated in [NPB-CPP](https://github.com/GMAP/NPB-CPP):
 
 + Memory conventions adopted on NPB-CPP turn better the performance of the C++ code, lowering the execution time and memory consumption (on some applications, these conventions turn the performance of the NPB-CPP even better than the original Fortran NPB3.3.1, as for example on BT pseudo-application).  
 
