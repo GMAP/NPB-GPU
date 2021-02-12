@@ -23,10 +23,10 @@
 #include "../common/npb-CPP.hpp"
 #include "npbparams.hpp"
 
-#define TOTAL_EXECUTION 0
-#define INITIALIZATION 1
-#define BENCHMARKING 2
-#define SORTING 3
+#define PROFILING_TOTAL_TIME (0)
+#define PROFILING_CREATE (1)
+#define PROFILING_RANK (2)
+#define PROFILING_VERIFY (3)
 
 #define THREADS_PER_BLOCK (256)
 #define SHARE_MEMORY_ON_RANK_GPU_KERNEL_4 (2*THREADS_PER_BLOCK)
@@ -277,21 +277,20 @@ int main(int argc, char** argv){
 	double timecounter;
 	FILE* fp;
 
-	/* initialize timers */
-	timer_on = 0;            
-	if((fp = fopen("timer.flag", "r")) != NULL){
-		fclose(fp);
-		timer_on = 1;
-	}
-	timer_clear(0);
-	if(timer_on){
-		timer_clear(1);
-		timer_clear(2);
-		timer_clear(3);
-	}
+#if defined(PROFILING)
+	printf(" PROFILING mode on\n");
+#endif
 
-	/* start timer */
-	timer_start(TOTAL_EXECUTION);
+	timer_clear(PROFILING_TOTAL_TIME);
+#if defined(PROFILING)
+	timer_clear(PROFILING_CREATE);
+	timer_clear(PROFILING_RANK);
+	timer_clear(PROFILING_VERIFY);
+#endif
+
+#if defined(PROFILING)
+	timer_start(PROFILING_TOTAL_TIME);
+#endif
 
 	/* initialize the verification arrays if a valid class */
 	for(i=0; i<TEST_ARRAY_SIZE; i++){
@@ -330,11 +329,15 @@ int main(int argc, char** argv){
 
 	setup_gpu();
 
-	if(timer_on){timer_start(INITIALIZATION);}
+#if defined(PROFILING)
+	timer_start(PROFILING_CREATE);
+#endif
 	/* generate random number sequence and subsequent keys on all procs */
 	create_seq_gpu(314159265.00, /* random number gen seed */
 			1220703125.00); /* random number gen mult */
-	if(timer_on){timer_stop(INITIALIZATION);}
+#if defined(PROFILING)
+	timer_stop(PROFILING_CREATE);
+#endif
 
 	/* 
 	 * do one interation for free (i.e., untimed) to guarantee initialization of  
@@ -349,26 +352,42 @@ int main(int argc, char** argv){
 
 	if(CLASS != 'S')printf( "\n   iteration\n");
 
-	if(timer_on){timer_start(BENCHMARKING);}
+#if defined(PROFILING)
+	timer_start(PROFILING_RANK);
+#else
+	timer_start(PROFILING_TOTAL_TIME);
+#endif
 	/* this is the main iteration */
 	for(iteration=1; iteration<=MAX_ITERATIONS; iteration++){
 		if(CLASS != 'S')printf( "        %d\n", iteration);
 		rank_gpu(iteration);
 	}
 	cudaMemcpy(&passed_verification, passed_verification_device, size_passed_verification_device, cudaMemcpyDeviceToHost);
-	if(timer_on){timer_stop(BENCHMARKING);}
+#if defined(PROFILING)
+	timer_stop(PROFILING_RANK);
+#else
+	timer_stop(PROFILING_TOTAL_TIME);
+#endif
 
 	/* 
 	 * this tests that keys are in sequence: sorting of last ranked key seq
 	 * occurs here, but is an untimed operation                             
 	 */
-	 if(timer_on){timer_start(SORTING);}
+#if defined(PROFILING)
+	timer_start(PROFILING_VERIFY);
+#endif
 	full_verify_gpu();
-	if(timer_on){timer_stop(SORTING);}
+#if defined(PROFILING)
+	timer_stop(PROFILING_VERIFY);
+#endif
 
 	/* end of timing, obtain maximum time of all processors */
-	timer_stop(TOTAL_EXECUTION);
-	timecounter = timer_read(BENCHMARKING);
+#if defined(PROFILING)
+	timer_stop(PROFILING_TOTAL_TIME);
+	timecounter = timer_read(PROFILING_RANK);
+#else
+	timecounter = timer_read(PROFILING_TOTAL_TIME);
+#endif
 
 	/* the final printout  */
 	if(passed_verification != 5*MAX_ITERATIONS+1){passed_verification = 0;}
@@ -393,22 +412,22 @@ int main(int argc, char** argv){
 			(char*)CS7);
 
 	/* print additional timers */
-	if(timer_on){
-		double t_total, t_percent;
-		t_total = timer_read(TOTAL_EXECUTION);
-		printf("\nAdditional timers -\n");
-		printf(" Total execution: %8.3f\n", t_total);
-		if(t_total == 0.0)t_total = 1.0;
-		timecounter = timer_read(INITIALIZATION);
-		t_percent = timecounter/t_total * 100.;
-		printf(" Initialization : %8.3f (%5.2f%%)\n", timecounter, t_percent);
-		timecounter = timer_read(BENCHMARKING);
-		t_percent = timecounter/t_total * 100.;
-		printf(" Benchmarking   : %8.3f (%5.2f%%)\n", timecounter, t_percent);
-		timecounter = timer_read(SORTING);
-		t_percent = timecounter/t_total * 100.;
-		printf(" Sorting        : %8.3f (%5.2f%%)\n", timecounter, t_percent);
-	}
+#if defined(PROFILING)
+	double t_total, t_percent;
+	t_total = timer_read(PROFILING_TOTAL_TIME);
+	printf("\nAdditional timers -\n");
+	printf(" Total execution: %8.3f\n", t_total);
+	if(t_total == 0.0)t_total = 1.0;
+	timecounter = timer_read(PROFILING_CREATE);
+	t_percent = timecounter/t_total * 100.;
+	printf(" Initialization : %8.3f (%5.2f%%)\n", timecounter, t_percent);
+	timecounter = timer_read(PROFILING_RANK);
+	t_percent = timecounter/t_total * 100.;
+	printf(" Benchmarking   : %8.3f (%5.2f%%)\n", timecounter, t_percent);
+	timecounter = timer_read(PROFILING_VERIFY);
+	t_percent = timecounter/t_total * 100.;
+	printf(" Sorting        : %8.3f (%5.2f%%)\n", timecounter, t_percent);
+#endif
 
 	release_gpu();
 
