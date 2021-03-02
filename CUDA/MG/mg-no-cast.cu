@@ -20,6 +20,7 @@
  * CUDA version:
  *     Gabriell Araujo <hexenoften@gmail.com>
  */
+ /* NO CAST VERSION 2 */
 
 #include <cuda.h>
 #include "../common/npb-CPP.hpp"
@@ -51,7 +52,6 @@
 //#define SHARED_2_M (2*M*sizeof(double))
 //#define SHARED_3_M (3*M*sizeof(double))
 //#define SHARED_2_NORM (2*THREADS_PER_BLOCK_ON_NORM2U3*sizeof(double))
-
 
 /* global variables */
 #if defined(DO_NOT_ALLOCATE_ARRAYS_WITH_DYNAMIC_MEMORY_AND_AS_SINGLE_DIMENSION)
@@ -686,40 +686,36 @@ static void comm3(void* pointer_u,
 	//double (*u)[n2][n1] = (double (*)[n2][n1])pointer_u;
 	double* pointer_aux_u = (double*)pointer_u;
 
-	n1 = MAXLEVEL+1;
-	n2 = MAXLEVEL+1;
-	n3 = MAXLEVEL+1;
-
 	int i1, i2, i3;
 	if(timeron){timer_start(T_COMM3);}
 	/* axis = 1 */
 	for(i3 = 1; i3 < n3-1; i3++){
 		for(i2 = 1; i2 < n2-1; i2++){
 			//u[i3][i2][0] = u[i3][i2][n1-2];
-			pointer_aux_u[(i3) + (i2)*n1 + (0)*n1*n2] = u[(i3) + (i2)*n1 + (n1-2)*n1*n2];
+			pointer_aux_u[(i3)*n1*n2 + (i2)*n1 + (0)] = u[(i3)*n1*n2 + (i2)*n1 + (n1-2)];
 
 			//u[i3][i2][n1-1] = u[i3][i2][1];
-			pointer_aux_u[(i3) + (i2)*n1 + (n1-1)*n1*n2] = pointer_aux_u[(i3) + (i2)*n1 + (1)*n1*n2];
+			pointer_aux_u[(i3)*n1*n2 + (i2)*n1 + (n1-1)] = pointer_aux_u[(i3)*n1*n2 + (i2)*n1 + (1)];
 		}
 	}
 	/* axis = 2 */
 	for(i3 = 1; i3 < n3-1; i3++){
 		for(i1 = 0; i1 < n1; i1++){
 			//u[i3][0][i1] = u[i3][n2-2][i1];
-			pointer_aux_u[(i3) + (0)*n1 + (i1)*n1*n2] = pointer_aux_u[(i3) + (n2-2)*n1 + (i1)*n1*n2];
+			pointer_aux_u[(i3)*n1*n2 + (0)*n1 + (i1)] = pointer_aux_u[(i3)*n1*n2 + (n2-2)*n1 + (i1)];
 
 			//u[i3][n2-1][i1] = u[i3][1][i1];
-			pointer_aux_u[(i3) + (n2-1)*n1 + (i1)*n1*n2] = pointer_aux_u[(i3) + (1)*n1 + (i1)*n1*n2];	
+			pointer_aux_u[(i3)*n1*n2 + (n2-1)*n1 + (i1)] = pointer_aux_u[(i3)*n1*n2 + (1)*n1 + (i1)];
 		}
 	}
 	/* axis = 3 */
 	for(i2 = 0; i2 < n2; i2++){
 		for(i1 = 0; i1 < n1; i1++){
 			//u[0][i2][i1] = u[n3-2][i2][i1];
-			pointer_aux_u[(0) + (i2)*n1 + (i1)*n1*n2] = pointer_aux_u[(n3-2) + (i2)*n1 + (i1)*n1*n2];
+			pointer_aux_u[(0)*n1*n2 + (i2)*n1 + (i1)] = pointer_aux_u[(n3-2)*n1*n2 + (i2)*n1 + (i1)];
 
-			//u[n3-1][i2][i1] = u[1][i2][i1];
-			pointer_aux_u[(n3-1) + (i2)*n1 + (i1)*n1*n2] = pointer_aux_u[(1) + (i2)*n1*n2 + (i1)*n1*n2];	
+			//u[n3-1][i2][i1] = u[1][i2][i1];	
+			pointer_aux_u[(n3-1)*n1*n2 + (i2)*n1 + (i1)] = pointer_aux_u[(1)*n1*n2 + (i2)*n1 + (i1)];
 		}
 	}
 	if(timeron){timer_stop(T_COMM3);}
@@ -842,12 +838,11 @@ static void interp(void* pointer_z,
 		int n1, 
 		int n2, 
 		int n3, 
-		int k){
-	double* pointer_aux_z = (double*)pointer_z;
-	double* pointer_aux_u = (double*)pointer_u;
-
+		int k){	
 	//double (*z)[mm2][mm1] = (double (*)[mm2][mm1])pointer_z;
 	//double (*u)[n2][n1] = (double (*)[n2][n1])pointer_u;
+	double* pointer_aux_z = (double*)pointer_z;
+	double* pointer_aux_u = (double*)pointer_u;
 
 	int i3, i2, i1, d1, d2, d3, t1, t2, t3;
 
@@ -867,63 +862,63 @@ static void interp(void* pointer_z,
 			for(i2 = 0; i2 < mm2-1; i2++){
 				for(i1 = 0; i1 < mm1; i1++){
 					//z1[i1] = z[i3][i2+1][i1] + z[i3][i2][i1];
-					z1[i1] = pointer_aux_z[(i3) + (i2+1)*mm1 + (i1)*mm1*mm2] + pointer_aux_z[(i3) + (i2)*mm1 + (i1)*mm1*mm2];
+					z1[i1] = pointer_aux_z[(i3)*mm1*mm2 + (i2+1)*mm1 + (i1)] + pointer_aux_z[(i3)*mm1*mm2 + (i2)*mm1 + (i1)];
 
 					//z2[i1] = z[i3+1][i2][i1] + z[i3][i2][i1];
-					z2[i1] = pointer_aux_z[(i3+1) + (i2)*mm1 + (i1)*mm1*mm2] + pointer_aux_z[(i3) + (i2)*mm1 + (i1)*mm1*mm2];
+					z2[i1] = pointer_aux_z[(i3+1)*mm1*mm2 + (i2)*mm1 + (i1)] + pointer_aux_z[(i3)*mm1*mm2 + (i2)*mm1 + (i1)];
 
 					//z3[i1] = z[i3+1][i2+1][i1] + z[i3+1][i2][i1] + z1[i1];
-					z3[i1] = pointer_aux_z[(i3+1) + (i2+1)*mm1 + (i1)*mm1*mm2] + pointer_aux_z[(i3+1) + (i2)*mm1 + (i1)*mm1*mm2] + z1[i1];
+					z3[i1] = pointer_aux_z[(i3+1)*mm1*mm2 + (i2+1)*mm1 + (i1)] + pointer_aux_z[(i3+1)*mm1*mm2 + (i2)*mm1 + (i1)] + z1[i1];
 				}
 				for(i1 = 0; i1 < mm1-1; i1++){
 					//u[2*i3][2*i2][2*i1] = u[2*i3][2*i2][2*i1] + z[i3][i2][i1];
-					pointer_aux_u[(2*i3) +(2*i2)*n1 + (2*i1)*n1*n2] = 
-						pointer_aux_u[(2*i3) +(2*i2)*n1 + (2*i1)*n1*n2] + 
-						pointer_aux_z[(i3) + (i2)*mm1 + (i1)*mm1*mm2];
+					pointer_aux_u[(2*i3)*n1*n2 +(2*i2)*n1 + (2*i1)] = 
+						pointer_aux_u[(2*i3)*n1*n2 +(2*i2)*n1 + (2*i1)] + 
+						pointer_aux_z[(i3)*mm1*mm2 + (i2)*mm1 + (i1)];
 
 					//u[2*i3][2*i2][2*i1+1] = u[2*i3][2*i2][2*i1+1] + 0.5 * (z[i3][i2][i1+1] + z[i3][i2][i1]);
-					pointer_aux_u[(2*i3) + (2*i2)*n1 + (2*i1+1)*n1*n2] = 
-						pointer_aux_u[(2*i3) + (2*i2)*n1 + (2*i1+1)*n1*n2] + 
+					pointer_aux_u[(2*i3)*n1*n2 + (2*i2)*n1 + (2*i1+1)] = 
+						pointer_aux_u[(2*i3)*n1*n2 + (2*i2)*n1 + (2*i1+1)] + 
 						0.5 * 
-						(pointer_aux_z[(i3) + (i2)*mm1 + (i1+1)*mm1*mm2] + 
-						 pointer_aux_z[(i3) + (i2)*mm1 + (i1)*mm1*mm2]);
+						(pointer_aux_z[(i3)*mm1*mm2 + (i2)*mm1 + (i1+1)] + 
+						 pointer_aux_z[(i3)*mm1*mm2 + (i2)*mm1 + (i1)]);
 				}
 				for(i1 = 0; i1 < mm1-1; i1++){
 					//u[2*i3][2*i2+1][2*i1] = u[2*i3][2*i2+1][2*i1] + 0.5 * z1[i1];
-					pointer_aux_u[(2*i3) + (2*i2+1)*n1 + (2*i1)*n1*n2] = 
-						pointer_aux_u[(2*i3) + (2*i2+1)*n1 + (2*i1)*n1*n2] + 
+					pointer_aux_u[(2*i3)*n1*n2 + (2*i2+1)*n1 + (2*i1)] = 
+						pointer_aux_u[(2*i3)*n1*n2 + (2*i2+1)*n1 + (2*i1)] + 
 						0.5 * 
 						z1[i1];
 
 					//u[2*i3][2*i2+1][2*i1+1] = u[2*i3][2*i2+1][2*i1+1] + 0.25 * ( z1[i1] + z1[i1+1] );
-					pointer_aux_u[(2*i3) + (2*i2+1)*n1 + (2*i1+1)*n1*n2] = 
-						pointer_aux_u[(2*i3) + (2*i2+1)*n1 + (2*i1+1)*n1*n2] + 
+					pointer_aux_u[(2*i3)*n1*n2 + (2*i2+1)*n1 + (2*i1+1)] = 
+						pointer_aux_u[(2*i3)*n1*n2 + (2*i2+1)*n1 + (2*i1+1)] + 
 						0.25 * 
 						( z1[i1] + z1[i1+1] );
 				}
 				for(i1 = 0; i1 < mm1-1; i1++){
 					//u[2*i3+1][2*i2][2*i1] = u[2*i3+1][2*i2][2*i1] + 0.5 * z2[i1];
-					pointer_aux_u[(2*i3+1) + (2*i2)*n1 + (2*i1)*n1*n2] = 
-						pointer_aux_u[(2*i3+1) + (2*i2)*n1 + (2*i1)*n1*n2] + 
+					pointer_aux_u[(2*i3+1)*n1*n2 + (2*i2)*n1 + (2*i1)] = 
+						pointer_aux_u[(2*i3+1)*n1*n2 + (2*i2)*n1 + (2*i1)] + 
 						0.5 * 
 						z2[i1];
 
 					//u[2*i3+1][2*i2][2*i1+1] = u[2*i3+1][2*i2][2*i1+1] + 0.25 * ( z2[i1] + z2[i1+1] );
-					pointer_aux_u[(2*i3+1) + (2*i2)*n1 + (2*i1+1)*n1*n2] = 
-						pointer_aux_u[(2*i3+1) + (2*i2)*n1 + (2*i1+1)*n1*n2] + 
+					pointer_aux_u[(2*i3+1)*n1*n2 + (2*i2)*n1 + (2*i1+1)] = 
+						pointer_aux_u[(2*i3+1)*n1*n2 + (2*i2)*n1 + (2*i1+1)] + 
 						0.25 * 
 						( z2[i1] + z2[i1+1] );
 				}
 				for(i1 = 0; i1 < mm1-1; i1++){
 					//u[2*i3+1][2*i2+1][2*i1] = u[2*i3+1][2*i2+1][2*i1] + 0.25 * z3[i1];
-					pointer_aux_u[(2*i3+1) + (2*i2+1)*n1 + (2*i1)*n1*n2] = 
-						pointer_aux_u[(2*i3+1) + (2*i2+1)*n1 + (2*i1)*n1*n2] + 
+					pointer_aux_u[(2*i3+1)*n1*n2 + (2*i2+1)*n1 + (2*i1)] = 
+						pointer_aux_u[(2*i3+1)*n1*n2 + (2*i2+1)*n1 + (2*i1)] + 
 						0.25 * 
 						z3[i1];
 
 					//u[2*i3+1][2*i2+1][2*i1+1] = u[2*i3+1][2*i2+1][2*i1+1] + 0.125 * ( z3[i1] + z3[i1+1] );
-					pointer_aux_u[(2*i3+1) + (2*i2+1)*n1 + (2*i1+1)*n1*n2] = 
-						pointer_aux_u[(2*i3+1) + (2*i2+1)*n1 + (2*i1+1)*n1*n2] + 
+					pointer_aux_u[(2*i3+1)*n1*n2 + (2*i2+1)*n1 + (2*i1+1)] = 
+						pointer_aux_u[(2*i3+1)*n1*n2 + (2*i2+1)*n1 + (2*i1+1)] + 
 						0.125 * 
 						( z3[i1] + z3[i1+1] );
 				}
@@ -955,37 +950,37 @@ static void interp(void* pointer_z,
 			for(i2 = d2; i2 <= mm2-1; i2++){
 				for(i1 = d1; i1 <= mm1-1; i1++){
 					//u[2*i3-d3-1][2*i2-d2-1][2*i1-d1-1] = u[2*i3-d3-1][2*i2-d2-1][2*i1-d1-1] + z[i3-1][i2-1][i1-1];
-					pointer_aux_u[(2*i3-d3-1) + (2*i2-d2-1)*n1 + (2*i1-d1-1)*n1*n2] = 
-						pointer_aux_u[(2*i3-d3-1) + (2*i2-d2-1)*n1 + (2*i1-d1-1)*n1*n2] + 
-						pointer_aux_z[(i3-1) + (i2-1)*mm1 + (i1-1)*mm1*mm2];
+					pointer_aux_u[(2*i3-d3-1)*n1*n2 + (2*i2-d2-1)*n1 + (2*i1-d1-1)] = 
+						pointer_aux_u[(2*i3-d3-1)*n1*n2 + (2*i2-d2-1)*n1 + (2*i1-d1-1)] + 
+						pointer_aux_z[(i3-1)*mm1*mm2 + (i2-1)*mm1 + (i1-1)];
 				}
 				for(i1 = 1; i1 <= mm1-1; i1++){
 					//u[2*i3-d3-1][2*i2-d2-1][2*i1-t1-1] = u[2*i3-d3-1][2*i2-d2-1][2*i1-t1-1] + 0.5 * (z[i3-1][i2-1][i1] + z[i3-1][i2-1][i1-1]);
-					pointer_aux_u[(2*i3-d3-1) + (2*i2-d2-1)*n1 + (2*i1-t1-1)*n1*n2] = 
-						pointer_aux_u[(2*i3-d3-1) + (2*i2-d2-1)*n1 + (2*i1-t1-1)*n1*n2] + 
+					pointer_aux_u[(2*i3-d3-1)*n1*n2 + (2*i2-d2-1)*n1 + (2*i1-t1-1)] = 
+						pointer_aux_u[(2*i3-d3-1)*n1*n2 + (2*i2-d2-1)*n1 + (2*i1-t1-1)] + 
 						0.5 * 
-						(pointer_aux_z[(i3-1) + (i2-1)*mm1 + (i1)*mm1*mm2] + 
-						 pointer_aux_z[(i3-1) + (i2-1)*mm1 + (i1-1)*mm1*mm2]);
+						(pointer_aux_z[(i3-1)*mm1*mm2 + (i2-1)*mm1 + (i1)] + 
+						 pointer_aux_z[(i3-1)*mm1*mm2 + (i2-1)*mm1 + (i1-1)]);
 				}
 			}
 			for(i2 = 1; i2 <= mm2-1; i2++){
 				for( i1 = d1; i1 <= mm1-1; i1++){
 					//u[2*i3-d3-1][2*i2-t2-1][2*i1-d1-1] = u[2*i3-d3-1][2*i2-t2-1][2*i1-d1-1] + 0.5 * (z[i3-1][i2][i1-1] + z[i3-1][i2-1][i1-1]);
-					pointer_aux_u[(2*i3-d3-1) + (2*i2-t2-1)*n1 + (2*i1-d1-1)*n1*n2] = 
-						pointer_aux_u[(2*i3-d3-1) + (2*i2-t2-1)*n1 + (2*i1-d1-1)*n1*n2] + 
+					pointer_aux_u[(2*i3-d3-1)*n1*n2 + (2*i2-t2-1)*n1 + (2*i1-d1-1)] = 
+						pointer_aux_u[(2*i3-d3-1)*n1*n2 + (2*i2-t2-1)*n1 + (2*i1-d1-1)] + 
 						0.5 * 
-						(pointer_aux_z[(i3-1) + (i2)*mm1 + (i1-1)*mm1*mm2] + 
-						 pointer_aux_z[(i3-1) + (i2-1)*mm1*mm2 + (i1-1)*mm1*mm2]);
+						(pointer_aux_z[(i3-1)*mm1*mm2 + (i2)*mm1 + (i1-1)] + 
+						 pointer_aux_z[(i3-1)*mm1*mm2 + (i2-1)*mm1 + (i1-1)]);
 				}
 				for(i1 = 1; i1 <= mm1-1; i1++){
 					//u[2*i3-d3-1][2*i2-t2-1][2*i1-t1-1] = u[2*i3-d3-1][2*i2-t2-1][2*i1-t1-1] + 0.25 * (z[i3-1][i2][i1] + z[i3-1][i2-1][i1] + z[i3-1][i2][i1-1] + z[i3-1][i2-1][i1-1]);
-					pointer_aux_u[(2*i3-d3-1) + (2*i2-t2-1)*n1 + (2*i1-t1-1)*n1*n2] = 
-						pointer_aux_u[(2*i3-d3-1) + (2*i2-t2-1)*n1 + (2*i1-t1-1)*n1*n2] + 
+					pointer_aux_u[(2*i3-d3-1)*n1*n2 + (2*i2-t2-1)*n1 + (2*i1-t1-1)] = 
+						pointer_aux_u[(2*i3-d3-1)*n1*n2 + (2*i2-t2-1)*n1 + (2*i1-t1-1)] + 
 						0.25 * 
-						(pointer_aux_z[(i3-1) + (i2)*mm1 + (i1)*mm1*mm2] + 
-						 pointer_aux_z[(i3-1) + (i2-1)*mm1 + (i1)*mm1*mm2] + 
-						 pointer_aux_z[(i3-1) + (i2)*mm1 + (i1-1)*mm1*mm2] + 
-						 pointer_aux_z[(i3-1) + (i2-1)*mm1 + (i1-1)*mm1*mm2]);
+						(pointer_aux_z[(i3-1)*mm1*mm2 + (i2)*mm1 + (i1)] + 
+						 pointer_aux_z[(i3-1)*mm1*mm2 + (i2-1)*mm1 + (i1)] + 
+						 pointer_aux_z[(i3-1)*mm1*mm2 + (i2)*mm1 + (i1-1)] + 
+						 pointer_aux_z[(i3-1)*mm1*mm2 + (i2-1)*mm1 + (i1-1)]);
 				}
 			}
 		}
@@ -993,47 +988,47 @@ static void interp(void* pointer_z,
 			for(i2 = d2; i2 <= mm2-1; i2++){
 				for(i1 = d1; i1 <= mm1-1; i1++){
 					//u[2*i3-t3-1][2*i2-d2-1][2*i1-d1-1] = u[2*i3-t3-1][2*i2-d2-1][2*i1-d1-1] + 0.5 * (z[i3][i2-1][i1-1] + z[i3-1][i2-1][i1-1]);
-					pointer_aux_u[(2*i3-t3-1) + (2*i2-d2-1)*n1 + (2*i1-d1-1)*n1*n2] = 
-						pointer_aux_u[(2*i3-t3-1) + (2*i2-d2-1)*n1 + (2*i1-d1-1)*n1*n2] + 
+					pointer_aux_u[(2*i3-t3-1)*n1*n2 + (2*i2-d2-1)*n1 + (2*i1-d1-1)] = 
+						pointer_aux_u[(2*i3-t3-1)*n1*n2 + (2*i2-d2-1)*n1 + (2*i1-d1-1)] + 
 						0.5 * 
-						(pointer_aux_z[(i3) + (i2-1)*mm1 + (i1-1)*mm1*mm2] + 
-						 pointer_aux_z[(i3-1) + (i2-1)*mm1 + (i1-1)*mm1*mm2]);
+						(pointer_aux_z[(i3)*mm1*mm2 + (i2-1)*mm1 + (i1-1)] + 
+						 pointer_aux_z[(i3-1)*mm1*mm2 + (i2-1)*mm1 + (i1-1)]);
 				}
 				for(i1 = 1; i1 <= mm1-1; i1++){
 					//u[2*i3-t3-1][2*i2-d2-1][2*i1-t1-1] = u[2*i3-t3-1][2*i2-d2-1][2*i1-t1-1] + 0.25 * (z[i3][i2-1][i1] + z[i3][i2-1][i1-1] + z[i3-1][i2-1][i1] + z[i3-1][i2-1][i1-1]);
-					pointer_aux_u[(2*i3-t3-1) + (2*i2-d2-1)*n1 + (2*i1-t1-1)*n1*n2] = 
-						pointer_aux_u[(2*i3-t3-1) + (2*i2-d2-1)*n1 + (2*i1-t1-1)*n1*n2] + 
+					pointer_aux_u[(2*i3-t3-1)*n1*n2 + (2*i2-d2-1)*n1 + (2*i1-t1-1)] = 
+						pointer_aux_u[(2*i3-t3-1)*n1*n2 + (2*i2-d2-1)*n1 + (2*i1-t1-1)] + 
 						0.25 * 
-						(pointer_aux_z[(i3) + (i2-1)*mm1 + (i1)*mm1*mm2] + 
-						 pointer_aux_z[(i3) + (i2-1)*mm1 + (i1-1)*mm1*mm2] + 
-						 pointer_aux_z[(i3-1) + (i2-1)*mm1 + (i1)*mm1*mm2] + 
-						 pointer_aux_z[(i3-1) + (i2-1)*mm1 + (i1-1)*mm1*mm2]);
+						(pointer_aux_z[(i3)*mm1*mm2 + (i2-1)*mm1 + (i1)] + 
+						 pointer_aux_z[(i3)*mm1*mm2 + (i2-1)*mm1 + (i1-1)] + 
+						 pointer_aux_z[(i3-1)*mm1*mm2 + (i2-1)*mm1 + (i1)] + 
+						 pointer_aux_z[(i3-1)*mm1*mm2 + (i2-1)*mm1 + (i1-1)]);
 				}
 			}
 			for(i2 = 1; i2 <= mm2-1; i2++){
 				for (i1 = d1; i1 <= mm1-1; i1++){
 					//u[2*i3-t3-1][2*i2-t2-1][2*i1-d1-1] = u[2*i3-t3-1][2*i2-t2-1][2*i1-d1-1] + 0.25 * (z[i3][i2][i1-1] + z[i3][i2-1][i1-1] + z[i3-1][i2][i1-1] + z[i3-1][i2-1][i1-1]);
-					pointer_aux_u[(2*i3-t3-1) + (2*i2-t2-1)*n1 + (2*i1-d1-1)*n1*n2] = 
-						pointer_aux_u[(2*i3-t3-1) + (2*i2-t2-1)*n1 + (2*i1-d1-1)*n1*n2] + 
+					pointer_aux_u[(2*i3-t3-1)*n1*n2 + (2*i2-t2-1)*n1 + (2*i1-d1-1)] = 
+						pointer_aux_u[(2*i3-t3-1)*n1*n2 + (2*i2-t2-1)*n1 + (2*i1-d1-1)] + 
 						0.25 * 
-						(pointer_aux_z[(i3) + (i2)*mm1 + (i1-1)*mm1*mm2] + 
-						 pointer_aux_z[(i3) + (i2-1)*mm1 + (i1-1)*mm1*mm2] + 
-						 pointer_aux_z[(i3-1) + (i2)*mm1 + (i1-1)*mm1*mm2] + 
-						 pointer_aux_z[(i3-1) + (i2-1)*mm1 + (i1-1)*mm1*mm2]);
+						(pointer_aux_z[(i3)*mm1*mm2 + (i2)*mm1 + (i1-1)] + 
+						 pointer_aux_z[(i3)*mm1*mm2 + (i2-1)*mm1 + (i1-1)] + 
+						 pointer_aux_z[(i3-1)*mm1*mm2 + (i2)*mm1 + (i1-1)] + 
+						 pointer_aux_z[(i3-1)*mm1*mm2 + (i2-1)*mm1 + (i1-1)]);
 				}
 				for(i1 = 1; i1 <= mm1-1; i1++){
 					//u[2*i3-t3-1][2*i2-t2-1][2*i1-t1-1] = u[2*i3-t3-1][2*i2-t2-1][2*i1-t1-1] + 0.125 * (z[i3][i2][i1] + z[i3][i2-1][i1] + z[i3][i2][i1-1] + z[i3][i2-1][i1-1] + z[i3-1][i2][i1] + z[i3-1][i2-1][i1] + z[i3-1][i2][i1-1] + z[i3-1][i2-1][i1-1]);
-					pointer_aux_u[(2*i3-t3-1) + (2*i2-t2-1)*n1 + (2*i1-t1-1)*n1*n2] = 
-						pointer_aux_u[(2*i3-t3-1) + (2*i2-t2-1)*n1 + (2*i1-t1-1)*n1*n2] + 
+					pointer_aux_u[(2*i3-t3-1)*n1*n2 + (2*i2-t2-1)*n1 + (2*i1-t1-1)] = 
+						pointer_aux_u[(2*i3-t3-1)*n1*n2 + (2*i2-t2-1)*n1 + (2*i1-t1-1)] + 
 						0.125 * 
-						(pointer_aux_z[(i3) + (i2)*mm1 + (i1)*mm1*mm2] + 
-						 pointer_aux_z[(i3) + (i2-1)*mm1 + (i1)*mm1*mm2] + 
-						 pointer_aux_z[(i3) + (i2)*mm1 + (i1-1)*mm1*mm2] + 
-						 pointer_aux_z[(i3) + (i2-1)*mm1 + (i1-1)*mm1*mm2] + 
-						 pointer_aux_z[(i3-1) + (i2)*mm1 + (i1)*mm1*mm2] + 
-						 pointer_aux_z[(i3-1) + (i2-1)*mm1 + (i1)*mm1*mm2] + 
-						 pointer_aux_z[(i3-1) + (i2)*mm1 + (i1-1)*mm1*mm2] + 
-						 pointer_aux_z[(i3-1) + (i2-1)*mm1 + (i1-1)*mm1*mm2]);
+						(pointer_aux_z[(i3)*mm1*mm2 + (i2)*mm1 + (i1)] + 
+						 pointer_aux_z[(i3)*mm1*mm2 + (i2-1)*mm1 + (i1)] + 
+						 pointer_aux_z[(i3)*mm1*mm2 + (i2)*mm1 + (i1-1)] + 
+						 pointer_aux_z[(i3)*mm1*mm2 + (i2-1)*mm1 + (i1-1)] + 
+						 pointer_aux_z[(i3-1)*mm1*mm2 + (i2)*mm1 + (i1)] + 
+						 pointer_aux_z[(i3-1)*mm1*mm2 + (i2-1)*mm1 + (i1)] + 
+						 pointer_aux_z[(i3-1)*mm1*mm2 + (i2)*mm1 + (i1-1)] + 
+						 pointer_aux_z[(i3-1)*mm1*mm2 + (i2-1)*mm1 + (i1-1)]);
 				}
 			}
 		}
@@ -1282,9 +1277,9 @@ static void norm2u3(void* pointer_r,
 		for(i2 = 1; i2 < n2-1; i2++){
 			for(i1 = 1; i1 < n1-1; i1++){
 				//s = s + r[i3][i2][i1] * r[i3][i2][i1];
-				s = s + pointer_aux_r[(i3) + (i2)*n1 + (i1)*n1*n2] * pointer_aux_r[(i3) + (i2)*n1 + (i1)*n1*n2];
+				s = s + pointer_aux_r[(i3)*n1*n2 + (i2)*n1 + (i1)] * pointer_aux_r[(i3)*n1*n2 + (i2)*n1 + (i1)];
 				//a = fabs(r[i3][i2][i1]);
-				a = fabs(pointer_aux_r[(i3) + (i2)*n1 + (i1)*n1*n2]);
+				a = fabs(pointer_aux_r[(i3)*n1*n2 + (i2)*n1 + (i1)]);
 				if(a > *rnmu){*rnmu = a;}
 			}
 		}
@@ -1468,26 +1463,26 @@ static void psinv(void* pointer_r,
 		for(i2 = 1; i2 < n2-1; i2++){
 			for(i1 = 0; i1 < n1; i1++){
 				//r1[i1] = r[i3][i2-1][i1] + r[i3][i2+1][i1] + r[i3-1][i2][i1] + r[i3+1][i2][i1];
-				r1[i1] = pointer_aux_r[(i3) + (i2-1)*n1 + (i1)*n1*n2] + 
-					pointer_aux_r[(i3) + (i2+1)*n1 + (i1)*n1*n2] + 
-					pointer_aux_r[(i3-1) + (i2)*n1 + (i1)*n1*n2] + 
-					pointer_aux_r[(i3+1) + (i2)*n1 + (i1)*n1*n2];
+				r1[i1] = pointer_aux_r[(i3)*n1*n2 + (i2-1)*n1 + (i1)] + 
+					pointer_aux_r[(i3)*n1*n2 + (i2+1)*n1 + (i1)] + 
+					pointer_aux_r[(i3-1)*n1*n2 + (i2)*n1 + (i1)] + 
+					pointer_aux_r[(i3+1)*n1*n2 + (i2)*n1 + (i1)];
 
 				//r2[i1] = r[i3-1][i2-1][i1] + r[i3-1][i2+1][i1] + r[i3+1][i2-1][i1] + r[i3+1][i2+1][i1];
-				r2[i1] = pointer_aux_r[(i3-1) + (i2-1)*n1 + (i1)*n1*n2] + 
-					pointer_aux_r[(i3-1) + (i2+1)*n1 + (i1)*n1*n2] + 
-					pointer_aux_r[(i3+1) + (i2-1)*n1 + (i1)*n1*n2] + 
-					pointer_aux_r[(i3+1) + (i2+1)*n1 + (i1)*n1*n2];
+				r2[i1] = pointer_aux_r[(i3-1)*n1*n2 + (i2-1)*n1 + (i1)] + 
+					pointer_aux_r[(i3-1)*n1*n2 + (i2+1)*n1 + (i1)] + 
+					pointer_aux_r[(i3+1)*n1*n2 + (i2-1)*n1 + (i1)] + 
+					pointer_aux_r[(i3+1)*n1*n2 + (i2+1)*n1 + (i1)];
 			}
 			for(i1 = 1; i1 < n1-1; i1++){
 				//u[i3][i2][i1] = u[i3][i2][i1] + c[0] * r[i3][i2][i1] + c[1] * ( r[i3][i2][i1-1] + r[i3][i2][i1+1] + r1[i1] ) + c[2] * ( r2[i1] + r1[i1-1] + r1[i1+1] );
-				pointer_aux_u[(i3) + (i2)*n1 + (i1)*n1*n2] = 
-					pointer_aux_u[(i3) + (i2)*n1 + (i1)*n1*n2] + 
+				pointer_aux_u[(i3)*n1*n2 + (i2)*n1 + (i1)] = 
+					pointer_aux_u[(i3)*n1*n2 + (i2)*n1 + (i1)] + 
 					c[0] * 
-					pointer_aux_r[(i3) + (i2)*n1 + (i1)*n1*n2] + 
+					pointer_aux_r[(i3)*n1*n2 + (i2)*n1 + (i1)] + 
 					c[1] * 
-					( pointer_aux_r[(i3) + (i2)*n1 + (i1-1)*n1*n2] + 
-					  pointer_aux_r[(i3) + (i2)*n1 + (i1+1)*n1*n2] + 
+					( pointer_aux_r[(i3)*n1*n2 + (i2)*n1 + (i1-1)] + 
+					  pointer_aux_r[(i3)*n1*n2 + (i2)*n1 + (i1+1)] + 
 					  r1[i1] ) + 
 					c[2] * ( 
 							r2[i1] + 
@@ -1656,16 +1651,16 @@ static void resid(void* pointer_u,
 		for(i2 = 1; i2 < n2-1; i2++){
 			for(i1 = 0; i1 < n1; i1++){
 				//u1[i1] = u[i3][i2-1][i1] + u[i3][i2+1][i1] + u[i3-1][i2][i1] + u[i3+1][i2][i1];
-				u1[i1] = pointer_aux_u[(i3) + (i2-1)*n1 + (i1)*n1*n2] + 
-					pointer_aux_u[(i3) + (i2+1)*n1 + (i1)*n1*n2] + 
-					pointer_aux_u[(i3-1) + (i2)*n1 + (i1)*n1*n2] + 
-					pointer_aux_u[(i3+1) + (i2)*n1 + (i1)*n1*n2];				
+				u1[i1] = pointer_aux_u[(i3)*n1*n2 + (i2-1)*n1 + (i1)] + 
+					pointer_aux_u[(i3)*n1*n2 + (i2+1)*n1 + (i1)] + 
+					pointer_aux_u[(i3-1)*n1*n2 + (i2)*n1 + (i1)] + 
+					pointer_aux_u[(i3+1)*n1*n2 + (i2)*n1 + (i1)];
 
 				//u2[i1] = u[i3-1][i2-1][i1] + u[i3-1][i2+1][i1] + u[i3+1][i2-1][i1] + u[i3+1][i2+1][i1];
-				u2[i1] = pointer_aux_u[(i3-1) + (i2-1)*n1 + (i1)*n1*n2] + 
-					pointer_aux_u[(i3-1) + (i2+1)*n1 + (i1)*n1*n2] + 
-					pointer_aux_u[(i3+1) + (i2-1)*n1 + (i1)*n1*n2] + 
-					pointer_aux_u[(i3+1) + (i2+1)*n1 + (i1)*n1*n2];
+				u2[i1] = pointer_aux_u[(i3-1)*n1*n2 + (i2-1)*n1 + (i1)] + 
+					pointer_aux_u[(i3-1)*n1*n2 + (i2+1)*n1 + (i1)] + 
+					pointer_aux_u[(i3+1)*n1*n2 + (i2-1)*n1 + (i1)] + 
+					pointer_aux_u[(i3+1)*n1*n2 + (i2+1)*n1 + (i1)];
 			}
 			for(i1 = 1; i1 < n1-1; i1++){
 				/*
@@ -1677,10 +1672,10 @@ static void resid(void* pointer_u,
 				 * ---------------------------------------------------------------------
 				 */
 				//r[i3][i2][i1] = v[i3][i2][i1] - a[0] * u[i3][i2][i1] - a[2] * ( u2[i1] + u1[i1-1] + u1[i1+1] ) - a[3] * ( u2[i1-1] + u2[i1+1] );
-				pointer_aux_r[(i3) + (i2)*n1 + (i1)*n1*n2] = 
-					pointer_aux_v[(i3) + (i2)*n1 + (i1)*n1*n2] - 
+				pointer_aux_r[(i3)*n1*n2 + (i2)*n1 + (i1)] = 
+					pointer_aux_v[(i3)*n1*n2 + (i2)*n1 + (i1)] - 
 					a[0] * 
-					pointer_aux_u[(i3) + (i2)*n1 + (i1)*n1*n2] - 
+					pointer_aux_u[(i3)*n1*n2 + (i2)*n1 + (i1)] - 
 					a[2] * ( 
 							u2[i1] + 
 							u1[i1-1] + 
@@ -1836,39 +1831,39 @@ static void rprj3(void* pointer_r,
 				i1 = 2*j1-d1;	
 
 				//x1[i1] = r[i3+1][i2][i1] + r[i3+1][i2+2][i1] + r[i3][i2+1][i1] + r[i3+2][i2+1][i1];
-				x1[i1] = pointer_aux_r[(i3+1) + (i2)*m1k + (i1)*m1k*m2k] + 
-					pointer_aux_r[(i3+1) + (i2+2)*m1k + (i1)*m1k*m2k] + 
-					pointer_aux_r[(i3) + (i2+1)*m1k + (i1)*m1k*m2k] + 
-					pointer_aux_r[(i3+2) + (i2+1)*m1k + (i1)*m1k*m2k];
+				x1[i1] = pointer_aux_r[(i3+1)*m1k*m2k + (i2)*m1k + (i1)] + 
+					pointer_aux_r[(i3+1)*m1k*m2k + (i2+2)*m1k + (i1)] + 
+					pointer_aux_r[(i3)*m1k*m2k + (i2+1)*m1k + (i1)] + 
+					pointer_aux_r[(i3+2)*m1k*m2k + (i2+1)*m1k + (i1)];
 
 				//y1[i1] = r[i3][i2][i1] + r[i3+2][i2][i1] + r[i3][i2+2][i1] + r[i3+2][i2+2][i1];
-				y1[i1] = pointer_aux_r[(i3) + (i2)*m1k + (i1)*m1k*m2k] + 
-					pointer_aux_r[(i3+2) + (i2)*m1k + (i1)*m1k*m2k] + 
-					pointer_aux_r[(i3) + (i2+2)*m1k + (i1)*m1k*m2k] + 
-					pointer_aux_r[(i3+2) + (i2+2)*m1k + (i1)*m1k*m2k];
+				y1[i1] = pointer_aux_r[(i3)*m1k*m2k + (i2)*m1k + (i1)] + 
+					pointer_aux_r[(i3+2)*m1k*m2k + (i2)*m1k + (i1)] + 
+					pointer_aux_r[(i3)*m1k*m2k + (i2+2)*m1k + (i1)] + 
+					pointer_aux_r[(i3+2)*m1k*m2k + (i2+2)*m1k + (i1)];
 
 			}
 			for(j1 = 1; j1 < m1j-1; j1++){
 				i1 = 2*j1-d1;	
 
 				//y2 = r[i3][i2][i1+1] + r[i3+2][i2][i1+1] + r[i3][i2+2][i1+1] + r[i3+2][i2+2][i1+1];
-				y2 = pointer_aux_r[(i3) + (i2)*m1k + (i1+1)*m1k*m2k] + 
-					pointer_aux_r[(i3+2) + (i2)*m1k + (i1+1)*m1k*m2k] + 
-					pointer_aux_r[(i3) + (i2+2)*m1k + (i1+1)*m1k*m2k] + 
-					pointer_aux_r[(i3+2) + (i2+2)*m1k + (i1+1)*m1k*m2k];
+				y2 = pointer_aux_r[(i3)*m1k*m2k + (i2)*m1k + (i1+1)] + 
+					pointer_aux_r[(i3+2)*m1k*m2k + (i2)*m1k + (i1+1)] + 
+					pointer_aux_r[(i3)*m1k*m2k + (i2+2)*m1k + (i1+1)] + 
+					pointer_aux_r[(i3+2)*m1k*m2k + (i2+2)*m1k + (i1+1)];
 
 				//x2 = r[i3+1][i2][i1+1] + r[i3+1][i2+2][i1+1] + r[i3][i2+1][i1+1] + r[i3+2][i2+1][i1+1];
-				x2 = pointer_aux_r[(i3+1) + (i2)*m1k + (i1+1)*m1k*m2k] + 
-					pointer_aux_r[(i3+1) + (i2+2)*m1k + (i1+1)*m1k*m2k] + 
-					pointer_aux_r[(i3) + (i2+1)*m1k + (i1+1)*m1k*m2k] + 
-					pointer_aux_r[(i3+2) + (i2+1)*m1k + (i1+1)*m1k*m2k];
+				x2 = pointer_aux_r[(i3+1)*m1k*m2k + (i2)*m1k + (i1+1)] + 
+					pointer_aux_r[(i3+1)*m1k*m2k + (i2+2)*m1k + (i1+1)] + 
+					pointer_aux_r[(i3)*m1k*m2k + (i2+1)*m1k + (i1+1)] + 
+					pointer_aux_r[(i3+2)*m1k*m2k + (i2+1)*m1k + (i1+1)];
 
 				//s[j3][j2][j1] = 0.5 * r[i3+1][i2+1][i1+1] + 0.25 * ( r[i3+1][i2+1][i1] + r[i3+1][i2+1][i1+2] + x2) + 0.125 * ( x1[i1] + x1[i1+2] + y2) + 0.0625 * ( y1[i1] + y1[i1+2] );
-				pointer_aux_s[(j3) + (j2)*m1j + (j1)*m1j*m2j] = 0.5 * 
-					pointer_aux_r[(i3+1) + (i2+1)*m1k + (i1+1)*m1k*m2k] + 
+				pointer_aux_s[(j3)*m1j*m2j + (j2)*m1j + (j1)] = 0.5 * 
+					pointer_aux_r[(i3+1)*m1k*m2k + (i2+1)*m1k + (i1+1)] + 
 					0.25 * ( 
-							pointer_aux_r[(i3+1) + (i2+1)*m1k + (i1)*m1k*m2k] + 
-							pointer_aux_r[(i3+1) + (i2+1)*m1k + (i1+2)*m1k*m2k] + 
+							pointer_aux_r[(i3+1)*m1k*m2k + (i2+1)*m1k + (i1)] + 
+							pointer_aux_r[(i3+1)*m1k*m2k + (i2+1)*m1k + (i1+2)] + 
 							x2) + 
 					0.125 * ( 
 							x1[i1] + 
@@ -2104,7 +2099,7 @@ static void showall(void* pointer_z,
 		for(i2 = 0; i2 < m2; i2++){
 			for(i1 = 0; i1 < m1; i1++){			
 				//printf("%6.3f", z[i3][i2][i1]);
-				printf("%6.3f", pointer_aux_z[(i3) + (i2)*n1 + (i1)*n1*n2]);
+				printf("%6.3f", pointer_aux_z[(i3)*n1*n2 + (i2)*n1 + (i1)]);
 			}
 			printf("\n");
 		}
@@ -2125,7 +2120,7 @@ static void zero3(void* pointer_z,
 		for(i2 = 0; i2 < n2; i2++){
 			for(i1 = 0; i1 < n1; i1++){
 				//z[i3][i2][i1] = 0.0;
-				pointer_aux_z[(i3) + (i2)*n1 + (i1)*n1*n2] = 0.0;
+				pointer_aux_z[(i3)*n1*n2 + (i2)*n1 + (i1)] = 0.0;
 			}
 		}
 	}
