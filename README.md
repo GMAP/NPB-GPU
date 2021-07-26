@@ -4,6 +4,7 @@ This is a repository aimed at providing GPU parallel codes with different parall
 
 
 :sound:*News:* Parametrization support for configuring number of threads per block. :date:25/Jul/2021
+
 :sound:*News:* CUDA versions for pseudo-applications added and IS improved. :date:11/Feb/2021
 
 
