@@ -80,34 +80,18 @@
  */
 #define NZ (NA*(NONZER+1)*(NONZER+1))
 #define NAZ (NA*(NONZER+1))
-#define T_INIT (0)
-#define T_BENCH (1)
-#define T_CONJ_GRAD (2)
-#define T_LAST (3)
-#define PROFILING_KERNEL_ONE (21)
-#define PROFILING_KERNEL_TWO (22)
-#define PROFILING_KERNEL_THREE (23)
-#define PROFILING_KERNEL_FOUR (24)
-#define PROFILING_KERNEL_FIVE (25)
-#define PROFILING_KERNEL_SIX (26)
-#define PROFILING_KERNEL_SEVEN (27)
-#define PROFILING_KERNEL_EIGHT (28)
-#define PROFILING_KERNEL_NINE (29)
-#define PROFILING_KERNEL_TEN (30)
-#define PROFILING_KERNEL_ELEVEN (31)
-#define PROFILING_KERNEL_FIVE_MERGED_KERNEL_SIX (32)
-#define MINIMUM_THREADS_PER_BLOCK (64)
-#define THREADS_PER_BLOCK_ON_KERNEL_ONE (128)
-#define THREADS_PER_BLOCK_ON_KERNEL_TWO (64)
-#define THREADS_PER_BLOCK_ON_KERNEL_THREE (32)
-#define THREADS_PER_BLOCK_ON_KERNEL_FOUR (64)
-#define THREADS_PER_BLOCK_ON_KERNEL_FIVE (64)
-#define THREADS_PER_BLOCK_ON_KERNEL_SIX (64)
-#define THREADS_PER_BLOCK_ON_KERNEL_SEVEN (128)
-#define THREADS_PER_BLOCK_ON_KERNEL_EIGHT (32)
-#define THREADS_PER_BLOCK_ON_KERNEL_NINE (64)
-#define THREADS_PER_BLOCK_ON_KERNEL_TEN (64)
-#define THREADS_PER_BLOCK_ON_KERNEL_ELEVEN (128)
+#define PROFILING_TOTAL_TIME (0)
+#define PROFILING_KERNEL_ONE (1)
+#define PROFILING_KERNEL_TWO (2)
+#define PROFILING_KERNEL_THREE (3)
+#define PROFILING_KERNEL_FOUR (4)
+#define PROFILING_KERNEL_FIVE (5)
+#define PROFILING_KERNEL_SIX (6)
+#define PROFILING_KERNEL_SEVEN (7)
+#define PROFILING_KERNEL_EIGHT (8)
+#define PROFILING_KERNEL_NINE (9)
+#define PROFILING_KERNEL_TEN (10)
+#define PROFILING_KERNEL_ELEVEN (11)
 
 /* global variables */
 #if defined(DO_NOT_ALLOCATE_ARRAYS_WITH_DYNAMIC_MEMORY_AND_AS_SINGLE_DIMENSION)
@@ -145,7 +129,6 @@ static int firstcol;
 static int lastcol;
 static double amult;
 static double tran;
-static boolean timeron;
 /* gpu variables */
 int* colidx_device;
 int* rowstr_device;
@@ -189,39 +172,53 @@ size_t size_beta_device;
 size_t size_sum_device;
 size_t size_norm_temp1_device;
 size_t size_norm_temp2_device;
-size_t kernel_one_blocks_per_grid;
-size_t kernel_two_blocks_per_grid;
-size_t kernel_three_blocks_per_grid;
-size_t kernel_four_blocks_per_grid;
-size_t kernel_five_blocks_per_grid;
-size_t kernel_six_blocks_per_grid;
-size_t kernel_seven_blocks_per_grid;
-size_t kernel_eight_blocks_per_grid;
-size_t kernel_nine_blocks_per_grid;
-size_t kernel_ten_blocks_per_grid;
-size_t kernel_eleven_blocks_per_grid;
-size_t amount_of_share_data_on_kernel_one;
-size_t amount_of_share_data_on_kernel_two;
-size_t amount_of_share_data_on_kernel_three;
-size_t amount_of_share_data_on_kernel_four;
-size_t amount_of_share_data_on_kernel_five;
-size_t amount_of_share_data_on_kernel_six;
-size_t amount_of_share_data_on_kernel_seven;
-size_t amount_of_share_data_on_kernel_eight;
-size_t amount_of_share_data_on_kernel_nine;
-size_t amount_of_share_data_on_kernel_ten;
-size_t amount_of_share_data_on_kernel_eleven;
-size_t reduce_memory_on_kernel_one;
-size_t reduce_memory_on_kernel_two;
-size_t reduce_memory_on_kernel_three;
-size_t reduce_memory_on_kernel_four;
-size_t reduce_memory_on_kernel_five;
-size_t reduce_memory_on_kernel_six;
-size_t reduce_memory_on_kernel_seven;
-size_t reduce_memory_on_kernel_eight;
-size_t reduce_memory_on_kernel_nine;
-size_t reduce_memory_on_kernel_ten;
-size_t reduce_memory_on_kernel_eleven;
+int blocks_per_grid_on_kernel_one;
+int blocks_per_grid_on_kernel_two;
+int blocks_per_grid_on_kernel_three;
+int blocks_per_grid_on_kernel_four;
+int blocks_per_grid_on_kernel_five;
+int blocks_per_grid_on_kernel_six;
+int blocks_per_grid_on_kernel_seven;
+int blocks_per_grid_on_kernel_eight;
+int blocks_per_grid_on_kernel_nine;
+int blocks_per_grid_on_kernel_ten;
+int blocks_per_grid_on_kernel_eleven;
+int threads_per_block_on_kernel_one;
+int threads_per_block_on_kernel_two;
+int threads_per_block_on_kernel_three;
+int threads_per_block_on_kernel_four;
+int threads_per_block_on_kernel_five;
+int threads_per_block_on_kernel_six;
+int threads_per_block_on_kernel_seven;
+int threads_per_block_on_kernel_eight;
+int threads_per_block_on_kernel_nine;
+int threads_per_block_on_kernel_ten;
+int threads_per_block_on_kernel_eleven;
+size_t size_shared_data_on_kernel_one;
+size_t size_shared_data_on_kernel_two;
+size_t size_shared_data_on_kernel_three;
+size_t size_shared_data_on_kernel_four;
+size_t size_shared_data_on_kernel_five;
+size_t size_shared_data_on_kernel_six;
+size_t size_shared_data_on_kernel_seven;
+size_t size_shared_data_on_kernel_eight;
+size_t size_shared_data_on_kernel_nine;
+size_t size_shared_data_on_kernel_ten;
+size_t size_shared_data_on_kernel_eleven;
+size_t size_reduce_memory_on_kernel_one;
+size_t size_reduce_memory_on_kernel_two;
+size_t size_reduce_memory_on_kernel_three;
+size_t size_reduce_memory_on_kernel_four;
+size_t size_reduce_memory_on_kernel_five;
+size_t size_reduce_memory_on_kernel_six;
+size_t size_reduce_memory_on_kernel_seven;
+size_t size_reduce_memory_on_kernel_eight;
+size_t size_reduce_memory_on_kernel_nine;
+size_t size_reduce_memory_on_kernel_ten;
+size_t size_reduce_memory_on_kernel_eleven;
+int gpu_device_id;
+int total_devices;
+cudaDeviceProp gpu_device_properties;
 extern __shared__ double extern_share_data[];
 
 /* function prototypes */
@@ -263,14 +260,6 @@ __global__ void gpu_kernel_five_1(double alpha,
 __global__ void gpu_kernel_five_2(double alpha, 
 		double* q, 
 		double* r);
-static void gpu_kernel_five_merged_kernel_six(double alpha_host, 
-		double* rho_host);
-__global__ void gpu_kernel_five_merged_kernel_six(double alpha, 
-		double* p, 
-		double* q, 
-		double* r, 
-		double* z,
-		double global_data[]);
 static void gpu_kernel_six(double* rho_host);
 __global__ void gpu_kernel_six(double r[],
 		double global_data[]);
@@ -291,10 +280,6 @@ __global__ void gpu_kernel_nine(double r[],
 		double global_data[]);
 static void gpu_kernel_ten(double* norm_temp1, 
 		double* norm_temp2);
-__global__ void gpu_kernel_ten(double* norm_temp1, 
-		double* norm_temp2, 
-		double x[], 
-		double z[]);
 __global__ void gpu_kernel_ten_1(double* norm_temp, 
 		double x[], 
 		double z[]);
@@ -353,20 +338,20 @@ int main(int argc, char** argv){
 #if defined(DO_NOT_ALLOCATE_ARRAYS_WITH_DYNAMIC_MEMORY_AND_AS_SINGLE_DIMENSION)
 	printf(" DO_NOT_ALLOCATE_ARRAYS_WITH_DYNAMIC_MEMORY_AND_AS_SINGLE_DIMENSION mode on\n");
 #endif
+#if defined(PROFILING)
+	printf(" PROFILING mode on\n");
+#endif
 	int	i, j, k, it;
 	double zeta;
 	double rnorm;
 	double norm_temp1, norm_temp2;
-	double t, mflops, tmax;
+	double t, mflops;
 	char class_npb;
 	boolean verified;
 	double zeta_verify_value, epsilon, err;
 
-	char *t_names[T_LAST];
-
-	for(i=0; i<T_LAST; i++){
-		timer_clear(i);
-	}
+	timer_clear(PROFILING_TOTAL_TIME);
+#if defined(PROFILING)
 	timer_clear(PROFILING_KERNEL_ONE);
 	timer_clear(PROFILING_KERNEL_TWO);
 	timer_clear(PROFILING_KERNEL_THREE);
@@ -378,20 +363,7 @@ int main(int argc, char** argv){
 	timer_clear(PROFILING_KERNEL_NINE);
 	timer_clear(PROFILING_KERNEL_TEN);
 	timer_clear(PROFILING_KERNEL_ELEVEN);
-	timer_clear(PROFILING_KERNEL_FIVE_MERGED_KERNEL_SIX);
-
-	FILE* fp;
-	if((fp = fopen("timer.flag", "r")) != NULL){
-		timeron = TRUE;
-		t_names[T_INIT] = (char*)"init";
-		t_names[T_BENCH] = (char*)"benchmk";
-		t_names[T_CONJ_GRAD] = (char*)"conjgd";
-		fclose(fp);
-	}else{
-		timeron = FALSE;
-	}
-
-	timer_start(T_INIT);
+#endif
 
 	firstrow = 0;
 	lastrow  = NA-1;
@@ -515,12 +487,8 @@ int main(int argc, char** argv){
 	}
 	zeta = 0.0;
 
-	timer_stop(T_INIT);
-
-	printf(" Initialization time = %15.3f seconds\n", timer_read(T_INIT));
-
 	setup_gpu();
-	timer_start(T_BENCH);
+	timer_start(PROFILING_TOTAL_TIME);
 
 	/*
 	 * --------------------------------------------------------------------
@@ -531,9 +499,7 @@ int main(int argc, char** argv){
 	 */
 	for(it = 1; it <= NITER; it++){
 		/* the call to the conjugate gradient routine */
-		if(timeron){timer_start(T_CONJ_GRAD);}
 		conj_grad_gpu(&rnorm);
-		if(timeron){timer_stop(T_CONJ_GRAD);}
 
 		/*
 		 * --------------------------------------------------------------------
@@ -553,7 +519,7 @@ int main(int argc, char** argv){
 		gpu_kernel_eleven(norm_temp2);
 	} /* end of main iter inv pow meth */
 
-	timer_stop(T_BENCH);
+	timer_stop(PROFILING_TOTAL_TIME);
 
 	/*
 	 * --------------------------------------------------------------------
@@ -561,7 +527,7 @@ int main(int argc, char** argv){
 	 * --------------------------------------------------------------------
 	 */
 
-	t = timer_read(T_BENCH);
+	t = timer_read(PROFILING_TOTAL_TIME);
 
 	printf(" Benchmark completed\n");
 
@@ -593,6 +559,61 @@ int main(int argc, char** argv){
 	}else{
 		mflops = 0.0;
 	}
+
+	char gpu_config[256];
+	char gpu_config_string[2048];
+#if defined(PROFILING)
+	sprintf(gpu_config, "%5s\t%25s\t%25s\t%25s\n", "GPU Kernel", "Threads Per Block", "Time in Seconds", "Time in Percentage");
+	strcpy(gpu_config_string, gpu_config);
+	sprintf(gpu_config, "%29s\t%25d\t%25f\t%24.2f%%\n", " one", threads_per_block_on_kernel_one, timer_read(PROFILING_KERNEL_ONE), (timer_read(PROFILING_KERNEL_ONE)*100/timer_read(PROFILING_TOTAL_TIME)));
+	strcat(gpu_config_string, gpu_config);
+	sprintf(gpu_config, "%29s\t%25d\t%25f\t%24.2f%%\n", " two", threads_per_block_on_kernel_two, timer_read(PROFILING_KERNEL_TWO), (timer_read(PROFILING_KERNEL_TWO)*100/timer_read(PROFILING_TOTAL_TIME)));
+	strcat(gpu_config_string, gpu_config);
+	sprintf(gpu_config, "%29s\t%25d\t%25f\t%24.2f%%\n", " three", threads_per_block_on_kernel_three, timer_read(PROFILING_KERNEL_THREE), (timer_read(PROFILING_KERNEL_THREE)*100/timer_read(PROFILING_TOTAL_TIME)));
+	strcat(gpu_config_string, gpu_config);
+	sprintf(gpu_config, "%29s\t%25d\t%25f\t%24.2f%%\n", " four", threads_per_block_on_kernel_four, timer_read(PROFILING_KERNEL_FOUR), (timer_read(PROFILING_KERNEL_FOUR)*100/timer_read(PROFILING_TOTAL_TIME)));
+	strcat(gpu_config_string, gpu_config);
+	sprintf(gpu_config, "%29s\t%25d\t%25f\t%24.2f%%\n", " five", threads_per_block_on_kernel_five, timer_read(PROFILING_KERNEL_FIVE), (timer_read(PROFILING_KERNEL_FIVE)*100/timer_read(PROFILING_TOTAL_TIME)));
+	strcat(gpu_config_string, gpu_config);
+	sprintf(gpu_config, "%29s\t%25d\t%25f\t%24.2f%%\n", " six", threads_per_block_on_kernel_six, timer_read(PROFILING_KERNEL_SIX), (timer_read(PROFILING_KERNEL_SIX)*100/timer_read(PROFILING_TOTAL_TIME)));
+	strcat(gpu_config_string, gpu_config);
+	sprintf(gpu_config, "%29s\t%25d\t%25f\t%24.2f%%\n", " seven", threads_per_block_on_kernel_seven, timer_read(PROFILING_KERNEL_SEVEN), (timer_read(PROFILING_KERNEL_SEVEN)*100/timer_read(PROFILING_TOTAL_TIME)));
+	strcat(gpu_config_string, gpu_config);
+	sprintf(gpu_config, "%29s\t%25d\t%25f\t%24.2f%%\n", " eight", threads_per_block_on_kernel_eight, timer_read(PROFILING_KERNEL_EIGHT), (timer_read(PROFILING_KERNEL_EIGHT)*100/timer_read(PROFILING_TOTAL_TIME)));
+	strcat(gpu_config_string, gpu_config);
+	sprintf(gpu_config, "%29s\t%25d\t%25f\t%24.2f%%\n", " nine", threads_per_block_on_kernel_nine, timer_read(PROFILING_KERNEL_NINE), (timer_read(PROFILING_KERNEL_NINE)*100/timer_read(PROFILING_TOTAL_TIME)));
+	strcat(gpu_config_string, gpu_config);
+	sprintf(gpu_config, "%29s\t%25d\t%25f\t%24.2f%%\n", " ten", threads_per_block_on_kernel_ten, timer_read(PROFILING_KERNEL_TEN), (timer_read(PROFILING_KERNEL_TEN)*100/timer_read(PROFILING_TOTAL_TIME)));
+	strcat(gpu_config_string, gpu_config);
+	sprintf(gpu_config, "%29s\t%25d\t%25f\t%24.2f%%\n", " eleven", threads_per_block_on_kernel_eleven, timer_read(PROFILING_KERNEL_ELEVEN), (timer_read(PROFILING_KERNEL_ELEVEN)*100/timer_read(PROFILING_TOTAL_TIME)));
+	strcat(gpu_config_string, gpu_config);
+#else
+	sprintf(gpu_config, "%5s\t%25s\n", "GPU Kernel", "Threads Per Block");
+	strcpy(gpu_config_string, gpu_config);
+	sprintf(gpu_config, "%29s\t%25d\n", " one", threads_per_block_on_kernel_one);
+	strcat(gpu_config_string, gpu_config);
+	sprintf(gpu_config, "%29s\t%25d\n", " two", threads_per_block_on_kernel_two);
+	strcat(gpu_config_string, gpu_config);
+	sprintf(gpu_config, "%29s\t%25d\n", " three", threads_per_block_on_kernel_three);
+	strcat(gpu_config_string, gpu_config);
+	sprintf(gpu_config, "%29s\t%25d\n", " four", threads_per_block_on_kernel_four);
+	strcat(gpu_config_string, gpu_config);
+	sprintf(gpu_config, "%29s\t%25d\n", " five", threads_per_block_on_kernel_five);
+	strcat(gpu_config_string, gpu_config);
+	sprintf(gpu_config, "%29s\t%25d\n", " six", threads_per_block_on_kernel_six);
+	strcat(gpu_config_string, gpu_config);
+	sprintf(gpu_config, "%29s\t%25d\n", " seven", threads_per_block_on_kernel_seven);
+	strcat(gpu_config_string, gpu_config);
+	sprintf(gpu_config, "%29s\t%25d\n", " eight", threads_per_block_on_kernel_eight);
+	strcat(gpu_config_string, gpu_config);
+	sprintf(gpu_config, "%29s\t%25d\n", " nine", threads_per_block_on_kernel_nine);
+	strcat(gpu_config_string, gpu_config);
+	sprintf(gpu_config, "%29s\t%25d\n", " ten", threads_per_block_on_kernel_ten);
+	strcat(gpu_config_string, gpu_config);
+	sprintf(gpu_config, "%29s\t%25d\n", " eleven", threads_per_block_on_kernel_eleven);
+	strcat(gpu_config_string, gpu_config);
+#endif
+
 	c_print_results((char*)"CG",
 			class_npb,
 			NA,
@@ -605,6 +626,11 @@ int main(int argc, char** argv){
 			verified,
 			(char*)NPBVERSION,
 			(char*)COMPILETIME,
+			(char*)COMPILERVERSION,
+			(char*)LIBVERSION,
+			(char*)CPU_MODEL,
+			(char*)gpu_device_properties.name,
+			(char*)gpu_config_string,
 			(char*)CS1,
 			(char*)CS2,
 			(char*)CS3,
@@ -612,29 +638,6 @@ int main(int argc, char** argv){
 			(char*)CS5,
 			(char*)CS6,
 			(char*)CS7);
-
-	/*
-	 * ---------------------------------------------------------------------
-	 * more timers
-	 * ---------------------------------------------------------------------
-	 */
-	if(timeron){
-		tmax = timer_read(T_BENCH);
-		if(tmax == 0.0){tmax = 1.0;}
-		printf("  SECTION   Time (secs)\n");
-		for(i = 0; i < T_LAST; i++){
-			t = timer_read(i);
-			if(i == T_INIT){
-				printf("  %8s:%9.3f\n", t_names[i], t);
-			}else{
-				printf("  %8s:%9.3f  (%6.2f%%)\n", t_names[i], t, t*100.0/tmax);
-				if(i == T_CONJ_GRAD){
-					t = tmax - t;
-					printf("    --> %8s:%9.3f  (%6.2f%%)\n", "rest", t, t*100.0/tmax);
-				}
-			}
-		}
-	}
 
 	release_gpu();
 
@@ -821,13 +824,10 @@ static void conj_grad_gpu(double* rnorm){
 		rho0 = rho;
 
 		/* obtain (z = z + alpha*p) and (r = r - alpha*q) */
-		/* gpu_kernel_five(alpha); */
+		gpu_kernel_five(alpha);
 
 		/* rho = r.r - now, obtain the norm of r: first, sum squares of r elements locally */
-		/* gpu_kernel_six(&rho); */
-
-		/* (z = z + alpha*p) and (r = r - alpha*q) and (rho = r.r) */
-		gpu_kernel_five_merged_kernel_six(alpha, &rho);
+		gpu_kernel_six(&rho);
 
 		/* obtain beta */
 		beta = rho / rho0;
@@ -846,13 +846,19 @@ static void conj_grad_gpu(double* rnorm){
 }
 
 static void gpu_kernel_one(){   
-	gpu_kernel_one<<<kernel_one_blocks_per_grid,
-		THREADS_PER_BLOCK_ON_KERNEL_ONE>>>(
+#if defined(PROFILING)
+	timer_start(PROFILING_KERNEL_ONE);
+#endif
+	gpu_kernel_one<<<blocks_per_grid_on_kernel_one,
+		threads_per_block_on_kernel_one>>>(
 				p_device, 
 				q_device, 
 				r_device, 
 				x_device, 
 				z_device);
+#if defined(PROFILING)
+	timer_stop(PROFILING_KERNEL_ONE);
+#endif
 }
 
 __global__ void gpu_kernel_one(double p[], 
@@ -869,17 +875,23 @@ __global__ void gpu_kernel_one(double p[],
 	p[thread_id] = x_value;
 }
 
-static void gpu_kernel_two(double* rho_host){   
-	gpu_kernel_two<<<kernel_two_blocks_per_grid,
-	THREADS_PER_BLOCK_ON_KERNEL_TWO,
-	amount_of_share_data_on_kernel_two>>>(
-			r_device, 
-			rho_device, 
-			global_data_device);
+static void gpu_kernel_two(double* rho_host){  
+#if defined(PROFILING)
+	timer_start(PROFILING_KERNEL_TWO);
+#endif
+	gpu_kernel_two<<<blocks_per_grid_on_kernel_two,
+		threads_per_block_on_kernel_two,
+		size_shared_data_on_kernel_two>>>(
+				r_device, 
+				rho_device, 
+				global_data_device);
 	global_data_reduce=0.0; 
-	cudaMemcpy(global_data, global_data_device, reduce_memory_on_kernel_two, cudaMemcpyDeviceToHost);	
-	for(int i=0; i<kernel_two_blocks_per_grid; i++){global_data_reduce+=global_data[i];}
+	cudaMemcpy(global_data, global_data_device, size_reduce_memory_on_kernel_two, cudaMemcpyDeviceToHost);	
+	for(int i=0; i<blocks_per_grid_on_kernel_two; i++){global_data_reduce+=global_data[i];}
 	*rho_host=global_data_reduce;
+#if defined(PROFILING)
+	timer_stop(PROFILING_KERNEL_TWO);
+#endif
 }
 
 __global__ void gpu_kernel_two(double r[],
@@ -906,14 +918,20 @@ __global__ void gpu_kernel_two(double r[],
 }
 
 static void gpu_kernel_three(){
-	gpu_kernel_three<<<kernel_three_blocks_per_grid,
-		THREADS_PER_BLOCK_ON_KERNEL_THREE,
-		amount_of_share_data_on_kernel_three>>>(
+#if defined(PROFILING)
+	timer_start(PROFILING_KERNEL_THREE);
+#endif
+	gpu_kernel_three<<<blocks_per_grid_on_kernel_three,
+		threads_per_block_on_kernel_three,
+		size_shared_data_on_kernel_three>>>(
 				colidx_device,
 				rowstr_device,
 				a_device,
 				p_device,
 				q_device);
+#if defined(PROFILING)
+	timer_stop(PROFILING_KERNEL_THREE);
+#endif
 }
 
 __global__ void gpu_kernel_three(int colidx[], 
@@ -943,17 +961,23 @@ __global__ void gpu_kernel_three(int colidx[],
 }
 
 static void gpu_kernel_four(double* d_host){   
-	gpu_kernel_four<<<kernel_four_blocks_per_grid,
-		THREADS_PER_BLOCK_ON_KERNEL_FOUR,
-		amount_of_share_data_on_kernel_four>>>(
+#if defined(PROFILING)
+	timer_start(PROFILING_KERNEL_FOUR);
+#endif
+	gpu_kernel_four<<<blocks_per_grid_on_kernel_four,
+		threads_per_block_on_kernel_four,
+		size_shared_data_on_kernel_four>>>(
 				d_device, 
 				p_device,
 				q_device,
 				global_data_device);
 	global_data_reduce=0.0; 
-	cudaMemcpy(global_data, global_data_device, reduce_memory_on_kernel_four, cudaMemcpyDeviceToHost);
-	for(int i=0; i<kernel_four_blocks_per_grid; i++){global_data_reduce+=global_data[i];}
+	cudaMemcpy(global_data, global_data_device, size_reduce_memory_on_kernel_four, cudaMemcpyDeviceToHost);
+	for(int i=0; i<blocks_per_grid_on_kernel_four; i++){global_data_reduce+=global_data[i];}
 	*d_host=global_data_reduce;
+#if defined(PROFILING)
+	timer_stop(PROFILING_KERNEL_FOUR);
+#endif
 }
 
 __global__ void gpu_kernel_four(double* d, 
@@ -979,17 +1003,23 @@ __global__ void gpu_kernel_four(double* d,
 	if(local_id==0){global_data[blockIdx.x]=share_data[0];}
 }
 
-static void gpu_kernel_five(double alpha_host){   
-	gpu_kernel_five_1<<<kernel_five_blocks_per_grid,
-		THREADS_PER_BLOCK_ON_KERNEL_FIVE>>>(
+static void gpu_kernel_five(double alpha_host){
+#if defined(PROFILING)
+	timer_start(PROFILING_KERNEL_FIVE);
+#endif
+	gpu_kernel_five_1<<<blocks_per_grid_on_kernel_five,
+		threads_per_block_on_kernel_five>>>(
 				alpha_host,
 				p_device,
 				z_device);
-	gpu_kernel_five_2<<<kernel_five_blocks_per_grid,
-		THREADS_PER_BLOCK_ON_KERNEL_FIVE>>>(
+	gpu_kernel_five_2<<<blocks_per_grid_on_kernel_five,
+		threads_per_block_on_kernel_five>>>(
 				alpha_host,
 				q_device,
 				r_device);
+#if defined(PROFILING)
+	timer_stop(PROFILING_KERNEL_FIVE);
+#endif
 } 
 
 __global__ void gpu_kernel_five_1(double alpha, 
@@ -1008,61 +1038,22 @@ __global__ void gpu_kernel_five_2(double alpha,
 	r[j] -= alpha * q[j];
 }
 
-static void gpu_kernel_five_merged_kernel_six(double alpha_host, 
-		double* rho_host){
-	gpu_kernel_five_merged_kernel_six<<<kernel_five_blocks_per_grid, 
-	THREADS_PER_BLOCK_ON_KERNEL_FIVE,
-	amount_of_share_data_on_kernel_five>>>(
-			alpha_host,
-			p_device,
-			q_device,
-			r_device,
-			z_device,
-			global_data_device);
-	global_data_reduce=0.0;
-	cudaMemcpy(global_data, global_data_device, reduce_memory_on_kernel_five, cudaMemcpyDeviceToHost);
-	for(int i=0; i<kernel_five_blocks_per_grid; i++){global_data_reduce+=global_data[i];}
-	*rho_host=global_data_reduce;
-}
-
-__global__ void gpu_kernel_five_merged_kernel_six(double alpha, 
-		double* p, 
-		double* q, 
-		double* r, 
-		double* z, 
-		double global_data[]){
-	double* share_data = (double*)extern_share_data;
-	int thread_id = blockIdx.x * blockDim.x + threadIdx.x;
-	int local_id = threadIdx.x;
-	/* kernel_five computation */
-	if(thread_id < NA){
-		double r_value;
-		z[thread_id] = z[thread_id] + alpha*p[thread_id];
-		r_value = r[thread_id] - alpha*q[thread_id];
-		r[thread_id] = r_value;
-		share_data[local_id] = r_value * r_value;
-	}else{
-		share_data[local_id] = 0.0;
-	}	 
-	/* kernel_six computation */
-	__syncthreads();	  
-	for(int i=blockDim.x/2; i>0; i>>=1){
-		if(local_id<i){share_data[local_id]+=share_data[local_id+i];}
-		__syncthreads();
-	}
-	if(local_id==0){global_data[blockIdx.x]=share_data[0];}
-}
-
-static void gpu_kernel_six(double* rho_host){   
-	gpu_kernel_six<<<kernel_six_blocks_per_grid,
-		THREADS_PER_BLOCK_ON_KERNEL_SIX,
-		amount_of_share_data_on_kernel_six>>>(
+static void gpu_kernel_six(double* rho_host){
+#if defined(PROFILING)
+	timer_start(PROFILING_KERNEL_SIX);
+#endif
+	gpu_kernel_six<<<blocks_per_grid_on_kernel_six,
+		threads_per_block_on_kernel_six,
+		size_shared_data_on_kernel_six>>>(
 				r_device, 
 				global_data_device);
 	global_data_reduce=0.0;
-	cudaMemcpy(global_data, global_data_device, reduce_memory_on_kernel_six, cudaMemcpyDeviceToHost);
-	for(int i=0; i<kernel_six_blocks_per_grid; i++){global_data_reduce+=global_data[i];}
+	cudaMemcpy(global_data, global_data_device, size_reduce_memory_on_kernel_six, cudaMemcpyDeviceToHost);
+	for(int i=0; i<blocks_per_grid_on_kernel_six; i++){global_data_reduce+=global_data[i];}
 	*rho_host=global_data_reduce;
+#if defined(PROFILING)
+	timer_stop(PROFILING_KERNEL_SIX);
+#endif
 } 
 
 __global__ void gpu_kernel_six(double r[], 
@@ -1083,11 +1074,17 @@ __global__ void gpu_kernel_six(double r[],
 }
 
 static void gpu_kernel_seven(double beta_host){
-	gpu_kernel_seven<<<kernel_seven_blocks_per_grid,
-	THREADS_PER_BLOCK_ON_KERNEL_SEVEN>>>(
-			beta_host,
-			p_device,
-			r_device);
+#if defined(PROFILING)
+	timer_start(PROFILING_KERNEL_SEVEN);
+#endif
+	gpu_kernel_seven<<<blocks_per_grid_on_kernel_seven,
+		threads_per_block_on_kernel_seven>>>(
+				beta_host,
+				p_device,
+				r_device);
+#if defined(PROFILING)
+	timer_stop(PROFILING_KERNEL_SEVEN);
+#endif
 }
 
 __global__ void gpu_kernel_seven(double beta, 
@@ -1099,14 +1096,20 @@ __global__ void gpu_kernel_seven(double beta,
 }
 
 static void gpu_kernel_eight(){
-	gpu_kernel_eight<<<kernel_eight_blocks_per_grid,
-	THREADS_PER_BLOCK_ON_KERNEL_EIGHT,
-	amount_of_share_data_on_kernel_eight>>>(
-			colidx_device, 
-			rowstr_device, 
-			a_device, 
-			r_device, 
-			z_device);
+#if defined(PROFILING)
+	timer_start(PROFILING_KERNEL_EIGHT);
+#endif
+	gpu_kernel_eight<<<blocks_per_grid_on_kernel_eight,
+		threads_per_block_on_kernel_eight,
+		size_shared_data_on_kernel_eight>>>(
+				colidx_device, 
+				rowstr_device, 
+				a_device, 
+				r_device, 
+				z_device);
+#if defined(PROFILING)
+	timer_stop(PROFILING_KERNEL_EIGHT);
+#endif
 }
 
 __global__ void gpu_kernel_eight(int colidx[], 
@@ -1135,18 +1138,24 @@ __global__ void gpu_kernel_eight(int colidx[],
 	if(local_id==0){r[j]=share_data[0];}
 }
 
-static void gpu_kernel_nine(double* sum_host){   
-	gpu_kernel_nine<<<kernel_nine_blocks_per_grid,
-		THREADS_PER_BLOCK_ON_KERNEL_NINE,
-		amount_of_share_data_on_kernel_nine>>>(
+static void gpu_kernel_nine(double* sum_host){ 
+#if defined(PROFILING)
+	timer_start(PROFILING_KERNEL_NINE);
+#endif 
+	gpu_kernel_nine<<<blocks_per_grid_on_kernel_nine,
+		threads_per_block_on_kernel_nine,
+		size_shared_data_on_kernel_nine>>>(
 				r_device, 
 				x_device, 
 				sum_device,
 				global_data_device);
 	global_data_reduce=0.0;
-	cudaMemcpy(global_data, global_data_device, reduce_memory_on_kernel_nine, cudaMemcpyDeviceToHost);
-	for(int i=0; i<kernel_nine_blocks_per_grid; i++){global_data_reduce+=global_data[i];}
+	cudaMemcpy(global_data, global_data_device, size_reduce_memory_on_kernel_nine, cudaMemcpyDeviceToHost);
+	for(int i=0; i<blocks_per_grid_on_kernel_nine; i++){global_data_reduce+=global_data[i];}
 	*sum_host=global_data_reduce;
+#if defined(PROFILING)
+	timer_stop(PROFILING_KERNEL_NINE);
+#endif
 }
 
 __global__ void gpu_kernel_nine(double r[], double x[], double* sum, double global_data[]){
@@ -1172,48 +1181,23 @@ __global__ void gpu_kernel_nine(double r[], double x[], double* sum, double glob
 
 static void gpu_kernel_ten(double* norm_temp1, 
 		double* norm_temp2){
-	//gpu_kernel_ten<<<kernel_ten_blocks_per_grid,THREADS_PER_BLOCK_ON_KERNEL_TEN,amount_of_share_data_on_kernel_ten*2>>>(global_data_device,global_data_two_device,x_device,z_device);
-	gpu_kernel_ten_1<<<kernel_ten_blocks_per_grid,THREADS_PER_BLOCK_ON_KERNEL_TEN,amount_of_share_data_on_kernel_ten>>>(global_data_device,x_device,z_device);
-	gpu_kernel_ten_2<<<kernel_ten_blocks_per_grid,THREADS_PER_BLOCK_ON_KERNEL_TEN,amount_of_share_data_on_kernel_ten>>>(global_data_two_device,x_device,z_device);
+#if defined(PROFILING)
+	timer_start(PROFILING_KERNEL_TEN);
+#endif
+	gpu_kernel_ten_1<<<blocks_per_grid_on_kernel_ten,threads_per_block_on_kernel_ten,size_shared_data_on_kernel_ten>>>(global_data_device,x_device,z_device);
+	gpu_kernel_ten_2<<<blocks_per_grid_on_kernel_ten,threads_per_block_on_kernel_ten,size_shared_data_on_kernel_ten>>>(global_data_two_device,x_device,z_device);
 
 	global_data_reduce=0.0; 
 	global_data_two_reduce=0.0; 
-	cudaMemcpy(global_data, global_data_device, reduce_memory_on_kernel_ten, cudaMemcpyDeviceToHost);
-	cudaMemcpy(global_data_two, global_data_two_device, reduce_memory_on_kernel_ten, cudaMemcpyDeviceToHost);
+	cudaMemcpy(global_data, global_data_device, size_reduce_memory_on_kernel_ten, cudaMemcpyDeviceToHost);
+	cudaMemcpy(global_data_two, global_data_two_device, size_reduce_memory_on_kernel_ten, cudaMemcpyDeviceToHost);
 
-	for(int i=0; i<kernel_ten_blocks_per_grid; i++){global_data_reduce+=global_data[i];global_data_two_reduce+=global_data_two[i];}
+	for(int i=0; i<blocks_per_grid_on_kernel_ten; i++){global_data_reduce+=global_data[i];global_data_two_reduce+=global_data_two[i];}
 	*norm_temp1=global_data_reduce;
 	*norm_temp2=global_data_two_reduce;
-}
-
-__global__ void gpu_kernel_ten(double* norm_temp1,
-		double* norm_temp2, 
-		double x[], 
-		double z[]){
-	double* share_data_1 = (double*)(extern_share_data);
-	double* share_data_2 = (double*)(&share_data_1[THREADS_PER_BLOCK_ON_KERNEL_TEN]);
-
-	int thread_id = blockIdx.x * blockDim.x + threadIdx.x;
-	int local_id = threadIdx.x;
-
-	share_data_1[threadIdx.x] = 0.0;
-	share_data_2[threadIdx.x] = 0.0;
-
-	if(thread_id >= NA){return;}
-
-	share_data_1[threadIdx.x] = x[thread_id]*z[thread_id];
-	share_data_2[threadIdx.x] = z[thread_id]*z[thread_id];
-
-	__syncthreads();
-	for(int i=blockDim.x/2; i>0; i>>=1){
-		if(local_id<i){
-			share_data_1[local_id]+=share_data_1[local_id+i];
-			share_data_2[local_id]+=share_data_2[local_id+i];}
-		__syncthreads();
-	}
-	if(local_id==0){
-		norm_temp1[blockIdx.x]=share_data_1[0];
-		norm_temp2[blockIdx.x]=share_data_2[0];}
+#if defined(PROFILING)
+	timer_stop(PROFILING_KERNEL_TEN);
+#endif
 }
 
 __global__ void gpu_kernel_ten_1(double* norm_temp, 
@@ -1261,11 +1245,17 @@ __global__ void gpu_kernel_ten_2(double* norm_temp,
 }
 
 static void gpu_kernel_eleven(double norm_temp2){   
-	gpu_kernel_eleven<<<kernel_eleven_blocks_per_grid,
-		THREADS_PER_BLOCK_ON_KERNEL_ELEVEN>>>(
+#if defined(PROFILING)
+	timer_start(PROFILING_KERNEL_ELEVEN);
+#endif
+	gpu_kernel_eleven<<<blocks_per_grid_on_kernel_eleven,
+		threads_per_block_on_kernel_eleven>>>(
 				norm_temp2,
 				x_device,
 				z_device);
+#if defined(PROFILING)
+	timer_stop(PROFILING_KERNEL_ELEVEN);
+#endif
 }
 
 __global__ void gpu_kernel_eleven(double norm_temp2, double x[], double z[]){
@@ -1398,21 +1388,157 @@ static void release_gpu(){
 }
 
 static void setup_gpu(){
-	global_data_elements=ceil(double(NA)/double(MINIMUM_THREADS_PER_BLOCK));
+	/*
+	 * struct cudaDeviceProp{
+	 *  char name[256];
+	 *  size_t totalGlobalMem;
+	 *  size_t sharedMemPerBlock;
+	 *  int regsPerBlock;
+	 *  int warpSize;
+	 *  size_t memPitch;
+	 *  int maxThreadsPerBlock;
+	 *  int maxThreadsDim[3];
+	 *  int maxGridSize[3];
+	 *  size_t totalConstMem;
+	 *  int major;
+	 *  int minor;
+	 *  int clockRate;
+	 *  size_t textureAlignment;
+	 *  int deviceOverlap;
+	 *  int multiProcessorCount;
+	 *  int kernelExecTimeoutEnabled;
+	 *  int integrated;
+	 *  int canMapHostMemory;
+	 *  int computeMode;
+	 *  int concurrentKernels;
+	 *  int ECCEnabled;
+	 *  int pciBusID;
+	 *  int pciDeviceID;
+	 *  int tccDriver;
+	 * }
+	 */
+	/* amount of available devices */ 
+	cudaGetDeviceCount(&total_devices);
 
-	size_global_data=sizeof(double)*(global_data_elements);
-	size_colidx_device=sizeof(int)*(NZ);
-	size_rowstr_device=sizeof(int)*(NA+1);
-	size_iv_device=sizeof(int)*(NA);
-	size_arow_device=sizeof(int)*(NA);
-	size_acol_device=sizeof(int)*(NAZ);
-	size_aelt_device=sizeof(double)*(NAZ);
-	size_a_device=sizeof(double)*(NZ);
-	size_x_device=sizeof(double)*(NA+2);
-	size_z_device=sizeof(double)*(NA+2);
-	size_p_device=sizeof(double)*(NA+2);
-	size_q_device=sizeof(double)*(NA+2);
-	size_r_device=sizeof(double)*(NA+2);
+	/* define gpu_device */
+	if(total_devices==0){
+		printf("\n\n\nNo Nvidia GPU found!\n\n\n");
+		exit(-1);
+	}else if((GPU_DEVICE>=0)&&
+			(GPU_DEVICE<total_devices)){
+		gpu_device_id = GPU_DEVICE;
+	}else{
+		gpu_device_id = 0;
+	}
+	cudaSetDevice(gpu_device_id);	
+	cudaGetDeviceProperties(&gpu_device_properties, gpu_device_id);
+
+	/* define threads_per_block */
+	if((CG_THREADS_PER_BLOCK_ON_KERNEL_ONE>=1)&&
+			(CG_THREADS_PER_BLOCK_ON_KERNEL_ONE<=gpu_device_properties.maxThreadsPerBlock)){
+		threads_per_block_on_kernel_one = CG_THREADS_PER_BLOCK_ON_KERNEL_ONE;
+	}
+	else{
+		threads_per_block_on_kernel_one = gpu_device_properties.warpSize;
+	}
+	if((CG_THREADS_PER_BLOCK_ON_KERNEL_TWO>=1)&&
+			(CG_THREADS_PER_BLOCK_ON_KERNEL_TWO<=gpu_device_properties.maxThreadsPerBlock)){
+		threads_per_block_on_kernel_two = CG_THREADS_PER_BLOCK_ON_KERNEL_TWO;
+	}
+	else{
+		threads_per_block_on_kernel_two = gpu_device_properties.warpSize;
+	}
+	if((CG_THREADS_PER_BLOCK_ON_KERNEL_THREE>=1)&&
+			(CG_THREADS_PER_BLOCK_ON_KERNEL_THREE<=gpu_device_properties.maxThreadsPerBlock)){
+		threads_per_block_on_kernel_three = CG_THREADS_PER_BLOCK_ON_KERNEL_THREE;
+	}
+	else{
+		threads_per_block_on_kernel_three = gpu_device_properties.warpSize;
+	}	
+	if((CG_THREADS_PER_BLOCK_ON_KERNEL_FOUR>=1)&&
+			(CG_THREADS_PER_BLOCK_ON_KERNEL_FOUR<=gpu_device_properties.maxThreadsPerBlock)){
+		threads_per_block_on_kernel_four = CG_THREADS_PER_BLOCK_ON_KERNEL_FOUR;
+	}
+	else{
+		threads_per_block_on_kernel_four = gpu_device_properties.warpSize;
+	}
+	if((CG_THREADS_PER_BLOCK_ON_KERNEL_FIVE>=1)&&
+			(CG_THREADS_PER_BLOCK_ON_KERNEL_FIVE<=gpu_device_properties.maxThreadsPerBlock)){
+		threads_per_block_on_kernel_five = CG_THREADS_PER_BLOCK_ON_KERNEL_FIVE;
+	}
+	else{
+		threads_per_block_on_kernel_five = gpu_device_properties.warpSize;
+	}
+	if((CG_THREADS_PER_BLOCK_ON_KERNEL_SIX>=1)&&
+			(CG_THREADS_PER_BLOCK_ON_KERNEL_SIX<=gpu_device_properties.maxThreadsPerBlock)){
+		threads_per_block_on_kernel_six = CG_THREADS_PER_BLOCK_ON_KERNEL_SIX;
+	}
+	else{
+		threads_per_block_on_kernel_six = gpu_device_properties.warpSize;
+	}
+	if((CG_THREADS_PER_BLOCK_ON_KERNEL_SEVEN>=1)&&
+			(CG_THREADS_PER_BLOCK_ON_KERNEL_SEVEN<=gpu_device_properties.maxThreadsPerBlock)){
+		threads_per_block_on_kernel_seven = CG_THREADS_PER_BLOCK_ON_KERNEL_SEVEN;
+	}
+	else{
+		threads_per_block_on_kernel_seven = gpu_device_properties.warpSize;
+	}
+	if((CG_THREADS_PER_BLOCK_ON_KERNEL_EIGHT>=1)&&
+			(CG_THREADS_PER_BLOCK_ON_KERNEL_EIGHT<=gpu_device_properties.maxThreadsPerBlock)){
+		threads_per_block_on_kernel_eight = CG_THREADS_PER_BLOCK_ON_KERNEL_EIGHT;
+	}
+	else{
+		threads_per_block_on_kernel_eight = gpu_device_properties.warpSize;
+	}
+	if((CG_THREADS_PER_BLOCK_ON_KERNEL_NINE>=1)&&
+			(CG_THREADS_PER_BLOCK_ON_KERNEL_NINE<=gpu_device_properties.maxThreadsPerBlock)){
+		threads_per_block_on_kernel_nine = CG_THREADS_PER_BLOCK_ON_KERNEL_NINE;
+	}
+	else{
+		threads_per_block_on_kernel_nine=gpu_device_properties.warpSize;
+	}
+	if((CG_THREADS_PER_BLOCK_ON_KERNEL_TEN>=1)&&
+			(CG_THREADS_PER_BLOCK_ON_KERNEL_TEN<=gpu_device_properties.maxThreadsPerBlock)){
+		threads_per_block_on_kernel_ten = CG_THREADS_PER_BLOCK_ON_KERNEL_TEN;
+	}
+	else{
+		threads_per_block_on_kernel_ten=gpu_device_properties.warpSize;
+	}
+	if((CG_THREADS_PER_BLOCK_ON_KERNEL_ELEVEN>=1)&&
+			(CG_THREADS_PER_BLOCK_ON_KERNEL_ELEVEN<=gpu_device_properties.maxThreadsPerBlock)){
+		threads_per_block_on_kernel_eleven = CG_THREADS_PER_BLOCK_ON_KERNEL_ELEVEN;
+	}
+	else{
+		threads_per_block_on_kernel_eleven = gpu_device_properties.warpSize;
+	}	
+
+	blocks_per_grid_on_kernel_one=(ceil((double)NA/(double)threads_per_block_on_kernel_one));
+	blocks_per_grid_on_kernel_two=(ceil((double)NA/(double)threads_per_block_on_kernel_two));   
+	blocks_per_grid_on_kernel_three=NA;
+	blocks_per_grid_on_kernel_four=(ceil((double)NA/(double)threads_per_block_on_kernel_four));
+	blocks_per_grid_on_kernel_five=(ceil((double)NA/(double)threads_per_block_on_kernel_five));
+	blocks_per_grid_on_kernel_six=(ceil((double)NA/(double)threads_per_block_on_kernel_six));
+	blocks_per_grid_on_kernel_seven=(ceil((double)NA/threads_per_block_on_kernel_seven));
+	blocks_per_grid_on_kernel_eight=NA;
+	blocks_per_grid_on_kernel_nine=(ceil((double)NA/(double)threads_per_block_on_kernel_nine));
+	blocks_per_grid_on_kernel_ten=(ceil((double)NA/(double)threads_per_block_on_kernel_ten));
+	blocks_per_grid_on_kernel_eleven=(ceil((double)NA/(double)threads_per_block_on_kernel_eleven));
+
+	global_data_elements=ceil(double(NA)/double(gpu_device_properties.warpSize));
+
+	size_global_data=global_data_elements*sizeof(double);
+	size_colidx_device=NZ*sizeof(int);
+	size_rowstr_device=(NA+1)*sizeof(int);
+	size_iv_device=NA*sizeof(int);
+	size_arow_device=NA*sizeof(int);
+	size_acol_device=NAZ*sizeof(int);
+	size_aelt_device=NAZ*sizeof(double);
+	size_a_device=NZ*sizeof(double);
+	size_x_device=(NA+2)*sizeof(double);
+	size_z_device=(NA+2)*sizeof(double);
+	size_p_device=(NA+2)*sizeof(double);
+	size_q_device=(NA+2)*sizeof(double);
+	size_r_device=(NA+2)*sizeof(double);
 	size_rho_device=sizeof(double);
 	size_d_device=sizeof(double);
 	size_alpha_device=sizeof(double);
@@ -1451,41 +1577,29 @@ static void setup_gpu(){
 	cudaMemcpy(x_device, x, size_x_device, cudaMemcpyHostToDevice);
 	cudaMemcpy(z_device, z, size_z_device, cudaMemcpyHostToDevice);	
 
-	kernel_one_blocks_per_grid=(ceil((double)NA/(double)THREADS_PER_BLOCK_ON_KERNEL_ONE));
-	kernel_two_blocks_per_grid=(ceil((double)NA/(double)THREADS_PER_BLOCK_ON_KERNEL_TWO));   
-	kernel_three_blocks_per_grid=NA;
-	kernel_four_blocks_per_grid=(ceil((double)NA/(double)THREADS_PER_BLOCK_ON_KERNEL_FOUR));
-	kernel_five_blocks_per_grid=(ceil((double)NA/(double)THREADS_PER_BLOCK_ON_KERNEL_FIVE));
-	kernel_six_blocks_per_grid=(ceil((double)NA/(double)THREADS_PER_BLOCK_ON_KERNEL_SIX));
-	kernel_seven_blocks_per_grid=(ceil((double)NA/THREADS_PER_BLOCK_ON_KERNEL_SEVEN));
-	kernel_eight_blocks_per_grid=NA;
-	kernel_nine_blocks_per_grid=(ceil((double)NA/(double)THREADS_PER_BLOCK_ON_KERNEL_NINE));
-	kernel_ten_blocks_per_grid=(ceil((double)NA/(double)THREADS_PER_BLOCK_ON_KERNEL_TEN));
-	kernel_eleven_blocks_per_grid=(ceil((double)NA/(double)THREADS_PER_BLOCK_ON_KERNEL_ELEVEN));
+	size_shared_data_on_kernel_one=threads_per_block_on_kernel_one*sizeof(double);
+	size_shared_data_on_kernel_two=threads_per_block_on_kernel_two*sizeof(double);
+	size_shared_data_on_kernel_three=threads_per_block_on_kernel_three*sizeof(double);
+	size_shared_data_on_kernel_four=threads_per_block_on_kernel_four*sizeof(double);
+	size_shared_data_on_kernel_five=threads_per_block_on_kernel_five*sizeof(double);
+	size_shared_data_on_kernel_six=threads_per_block_on_kernel_six*sizeof(double);
+	size_shared_data_on_kernel_seven=threads_per_block_on_kernel_seven*sizeof(double);
+	size_shared_data_on_kernel_eight=threads_per_block_on_kernel_eight*sizeof(double);
+	size_shared_data_on_kernel_nine=threads_per_block_on_kernel_nine*sizeof(double);
+	size_shared_data_on_kernel_ten=threads_per_block_on_kernel_ten*sizeof(double);
+	size_shared_data_on_kernel_eleven=threads_per_block_on_kernel_eleven*sizeof(double);
 
-	amount_of_share_data_on_kernel_one=sizeof(double)*THREADS_PER_BLOCK_ON_KERNEL_ONE;
-	amount_of_share_data_on_kernel_two=sizeof(double)*THREADS_PER_BLOCK_ON_KERNEL_TWO;
-	amount_of_share_data_on_kernel_three=sizeof(double)*THREADS_PER_BLOCK_ON_KERNEL_THREE;
-	amount_of_share_data_on_kernel_four=sizeof(double)*THREADS_PER_BLOCK_ON_KERNEL_FOUR;
-	amount_of_share_data_on_kernel_five=sizeof(double)*THREADS_PER_BLOCK_ON_KERNEL_FIVE;
-	amount_of_share_data_on_kernel_six=sizeof(double)*THREADS_PER_BLOCK_ON_KERNEL_SIX;
-	amount_of_share_data_on_kernel_seven=sizeof(double)*THREADS_PER_BLOCK_ON_KERNEL_SEVEN;
-	amount_of_share_data_on_kernel_eight=sizeof(double)*THREADS_PER_BLOCK_ON_KERNEL_EIGHT;
-	amount_of_share_data_on_kernel_nine=sizeof(double)*THREADS_PER_BLOCK_ON_KERNEL_NINE;
-	amount_of_share_data_on_kernel_ten=sizeof(double)*THREADS_PER_BLOCK_ON_KERNEL_TEN;
-	amount_of_share_data_on_kernel_eleven=sizeof(double)*THREADS_PER_BLOCK_ON_KERNEL_ELEVEN;
-
-	reduce_memory_on_kernel_one=kernel_one_blocks_per_grid*sizeof(double);
-	reduce_memory_on_kernel_two=kernel_two_blocks_per_grid*sizeof(double);
-	reduce_memory_on_kernel_three=kernel_three_blocks_per_grid*sizeof(double);
-	reduce_memory_on_kernel_four=kernel_four_blocks_per_grid*sizeof(double);
-	reduce_memory_on_kernel_five=kernel_five_blocks_per_grid*sizeof(double);
-	reduce_memory_on_kernel_six=kernel_six_blocks_per_grid*sizeof(double);
-	reduce_memory_on_kernel_seven=kernel_seven_blocks_per_grid*sizeof(double);
-	reduce_memory_on_kernel_eight=kernel_eight_blocks_per_grid*sizeof(double);
-	reduce_memory_on_kernel_nine=kernel_nine_blocks_per_grid*sizeof(double);
-	reduce_memory_on_kernel_ten=kernel_ten_blocks_per_grid*sizeof(double);
-	reduce_memory_on_kernel_eleven=kernel_eleven_blocks_per_grid*sizeof(double);
+	size_reduce_memory_on_kernel_one=blocks_per_grid_on_kernel_one*sizeof(double);
+	size_reduce_memory_on_kernel_two=blocks_per_grid_on_kernel_two*sizeof(double);
+	size_reduce_memory_on_kernel_three=blocks_per_grid_on_kernel_three*sizeof(double);
+	size_reduce_memory_on_kernel_four=blocks_per_grid_on_kernel_four*sizeof(double);
+	size_reduce_memory_on_kernel_five=blocks_per_grid_on_kernel_five*sizeof(double);
+	size_reduce_memory_on_kernel_six=blocks_per_grid_on_kernel_six*sizeof(double);
+	size_reduce_memory_on_kernel_seven=blocks_per_grid_on_kernel_seven*sizeof(double);
+	size_reduce_memory_on_kernel_eight=blocks_per_grid_on_kernel_eight*sizeof(double);
+	size_reduce_memory_on_kernel_nine=blocks_per_grid_on_kernel_nine*sizeof(double);
+	size_reduce_memory_on_kernel_ten=blocks_per_grid_on_kernel_ten*sizeof(double);
+	size_reduce_memory_on_kernel_eleven=blocks_per_grid_on_kernel_eleven*sizeof(double);
 }
 
 /*

@@ -66,10 +66,6 @@
 #define PROFILING_RANK (2)
 #define PROFILING_VERIFY (3)
 
-#define THREADS_PER_BLOCK (256)
-#define SHARE_MEMORY_ON_RANK_GPU_KERNEL_4 (2*THREADS_PER_BLOCK)
-#define SHARE_MEMORY_ON_RANK_GPU_KERNEL_5 (2*THREADS_PER_BLOCK)
-
 /*****************************************************************/
 /* for serial IS, buckets are not really req'd to solve NPB1 IS  */
 /* spec, but their use on some machines improves performance, on */
@@ -208,17 +204,6 @@ int test_index_array[TEST_ARRAY_SIZE],
 /* global variables */
 int passed_verification;
 int timer_on;
-int threads_per_block;
-int blocks_per_grid;
-int amount_of_work;
-int THREADS_PER_BLOCK_AT_CREATE_SEQ_GPU_KERNEL;
-int AMOUNT_OF_WORK_AT_CREATE_SEQ_GPU_KERNEL;
-int THREADS_PER_BLOCK_AT_RANK_GPU_KERNEL_2;
-int AMOUNT_OF_WORK_AT_RANK_GPU_KERNEL_2;
-int THREADS_PER_BLOCK_AT_RANK_GPU_KERNEL_3;
-int AMOUNT_OF_WORK_AT_RANK_GPU_KERNEL_3;
-int THREADS_PER_BLOCK_AT_FULL_VERIFY;
-int AMOUNT_OF_WORK_AT_FULL_VERIFY;
 int* key_array_device; 
 int* key_buff1_device; 
 int* key_buff2_device;
@@ -238,6 +223,48 @@ size_t size_partial_verify_vals_device;
 size_t size_passed_verification_device;
 size_t size_key_scan_device; 
 size_t size_sum_device;
+size_t size_shared_data_on_rank_4;
+size_t size_shared_data_on_rank_5;
+size_t size_shared_data_on_full_verify_3;
+int threads_per_block_on_create_seq;
+int threads_per_block_on_rank;
+int threads_per_block_on_rank_1;
+int threads_per_block_on_rank_2;
+int threads_per_block_on_rank_3;
+int threads_per_block_on_rank_4;
+int threads_per_block_on_rank_5;
+int threads_per_block_on_rank_6;
+int threads_per_block_on_rank_7;
+int threads_per_block_on_full_verify;
+int threads_per_block_on_full_verify_1;
+int threads_per_block_on_full_verify_2;
+int threads_per_block_on_full_verify_3;
+int blocks_per_grid_on_create_seq;
+int blocks_per_grid_on_rank_1;
+int blocks_per_grid_on_rank_2;
+int blocks_per_grid_on_rank_3;
+int blocks_per_grid_on_rank_4;
+int blocks_per_grid_on_rank_5;
+int blocks_per_grid_on_rank_6;
+int blocks_per_grid_on_rank_7;
+int blocks_per_grid_on_full_verify_1;
+int blocks_per_grid_on_full_verify_2;
+int blocks_per_grid_on_full_verify_3;
+int amount_of_work_on_create_seq;
+int amount_of_work_on_rank_1;
+int amount_of_work_on_rank_2;
+int amount_of_work_on_rank_3;
+int amount_of_work_on_rank_4;
+int amount_of_work_on_rank_5;
+int amount_of_work_on_rank_6;
+int amount_of_work_on_rank_7;
+int amount_of_work_on_full_verify_1;
+int amount_of_work_on_full_verify_2;
+int amount_of_work_on_full_verify_3;
+int gpu_device_id;
+int total_devices;
+cudaDeviceProp gpu_device_properties;
+extern __shared__ int extern_share_data[];
 
 /* function declarations */
 static void create_seq_gpu(double seed, 
@@ -311,13 +338,11 @@ int main(int argc, char** argv){
 #if defined(DO_NOT_ALLOCATE_ARRAYS_WITH_DYNAMIC_MEMORY_AND_AS_SINGLE_DIMENSION)
 	printf(" DO_NOT_ALLOCATE_ARRAYS_WITH_DYNAMIC_MEMORY_AND_AS_SINGLE_DIMENSION mode on\n");
 #endif
-	int i, iteration;
-	double timecounter;
-	FILE* fp;
-
 #if defined(PROFILING)
 	printf(" PROFILING mode on\n");
 #endif
+	int i, iteration;
+	double timecounter;
 
 	timer_clear(PROFILING_TOTAL_TIME);
 #if defined(PROFILING)
@@ -400,12 +425,13 @@ int main(int argc, char** argv){
 		if(CLASS != 'S')printf( "        %d\n", iteration);
 		rank_gpu(iteration);
 	}
-	cudaMemcpy(&passed_verification, passed_verification_device, size_passed_verification_device, cudaMemcpyDeviceToHost);
 #if defined(PROFILING)
 	timer_stop(PROFILING_RANK);
 #else
 	timer_stop(PROFILING_TOTAL_TIME);
 #endif
+
+	cudaMemcpy(&passed_verification, passed_verification_device, size_passed_verification_device, cudaMemcpyDeviceToHost);	
 
 	/* 
 	 * this tests that keys are in sequence: sorting of last ranked key seq
@@ -418,13 +444,34 @@ int main(int argc, char** argv){
 #if defined(PROFILING)
 	timer_stop(PROFILING_VERIFY);
 #endif
-
-	/* end of timing, obtain maximum time of all processors */
 #if defined(PROFILING)
 	timer_stop(PROFILING_TOTAL_TIME);
 	timecounter = timer_read(PROFILING_RANK);
 #else
 	timecounter = timer_read(PROFILING_TOTAL_TIME);
+#endif
+
+
+	char gpu_config[256];
+	char gpu_config_string[2048];
+#if defined(PROFILING)
+	sprintf(gpu_config, "%5s\t%25s\t%25s\t%25s\n", "GPU Kernel", "Threads Per Block", "Time in Seconds", "Time in Percentage");
+	strcpy(gpu_config_string, gpu_config);
+	sprintf(gpu_config, "%29s\t%25d\t%25f\t%24.2f%%\n", " create", threads_per_block_on_create_seq, timer_read(PROFILING_CREATE), (timer_read(PROFILING_CREATE)*100/timer_read(PROFILING_TOTAL_TIME)));
+	strcat(gpu_config_string, gpu_config);
+	sprintf(gpu_config, "%29s\t%25d\t%25f\t%24.2f%%\n", " rank", threads_per_block_on_rank, timer_read(PROFILING_RANK), (timer_read(PROFILING_RANK)*100/timer_read(PROFILING_TOTAL_TIME)));
+	strcat(gpu_config_string, gpu_config);
+	sprintf(gpu_config, "%29s\t%25d\t%25f\t%24.2f%%\n", " verify", threads_per_block_on_full_verify, timer_read(PROFILING_VERIFY), (timer_read(PROFILING_VERIFY)*100/timer_read(PROFILING_TOTAL_TIME)));
+	strcat(gpu_config_string, gpu_config);
+#else
+	sprintf(gpu_config, "%5s\t%25s\n", "GPU Kernel", "Threads Per Block");
+	strcpy(gpu_config_string, gpu_config);
+	sprintf(gpu_config, "%29s\t%25d\n", " create", threads_per_block_on_create_seq);
+	strcat(gpu_config_string, gpu_config);
+	sprintf(gpu_config, "%29s\t%25d\n", " rank", threads_per_block_on_rank);
+	strcat(gpu_config_string, gpu_config);
+	sprintf(gpu_config, "%29s\t%25d\n", " verify", threads_per_block_on_full_verify);
+	strcat(gpu_config_string, gpu_config);
 #endif
 
 	/* the final printout  */
@@ -441,6 +488,11 @@ int main(int argc, char** argv){
 			passed_verification,
 			(char*)NPBVERSION,
 			(char*)COMPILETIME,
+			(char*)COMPILERVERSION,
+			(char*)LIBVERSION,
+			(char*)CPU_MODEL,
+			(char*)gpu_device_properties.name,
+			(char*)gpu_config_string,
 			(char*)CS1,
 			(char*)CS2,
 			(char*)CS3,
@@ -450,22 +502,24 @@ int main(int argc, char** argv){
 			(char*)CS7);
 
 	/* print additional timers */
-#if defined(PROFILING)
-	double t_total, t_percent;
-	t_total = timer_read(PROFILING_TOTAL_TIME);
-	printf("\nAdditional timers -\n");
-	printf(" Total execution: %8.3f\n", t_total);
-	if(t_total == 0.0)t_total = 1.0;
-	timecounter = timer_read(PROFILING_CREATE);
-	t_percent = timecounter/t_total * 100.;
-	printf(" Initialization : %8.3f (%5.2f%%)\n", timecounter, t_percent);
-	timecounter = timer_read(PROFILING_RANK);
-	t_percent = timecounter/t_total * 100.;
-	printf(" Benchmarking   : %8.3f (%5.2f%%)\n", timecounter, t_percent);
-	timecounter = timer_read(PROFILING_VERIFY);
-	t_percent = timecounter/t_total * 100.;
-	printf(" Sorting        : %8.3f (%5.2f%%)\n", timecounter, t_percent);
-#endif
+	/*
+	   if(timer_on){
+	   double t_total, t_percent;
+	   t_total = timer_read(TOTAL_EXECUTION);
+	   printf("\nAdditional timers -\n");
+	   printf(" Total execution: %8.3f\n", t_total);
+	   if(t_total == 0.0)t_total = 1.0;
+	   timecounter = timer_read(INITIALIZATION);
+	   t_percent = timecounter/t_total * 100.;
+	   printf(" Initialization : %8.3f (%5.2f%%)\n", timecounter, t_percent);
+	   timecounter = timer_read(BENCHMARKING);
+	   t_percent = timecounter/t_total * 100.;
+	   printf(" Benchmarking   : %8.3f (%5.2f%%)\n", timecounter, t_percent);
+	   timecounter = timer_read(SORTING);
+	   t_percent = timecounter/t_total * 100.;
+	   printf(" Sorting        : %8.3f (%5.2f%%)\n", timecounter, t_percent);
+	   }
+	 */
 
 	release_gpu();
 
@@ -473,15 +527,12 @@ int main(int argc, char** argv){
 }
 
 static void create_seq_gpu(double seed, double a){  
-	threads_per_block = THREADS_PER_BLOCK_AT_CREATE_SEQ_GPU_KERNEL;
-	amount_of_work = AMOUNT_OF_WORK_AT_CREATE_SEQ_GPU_KERNEL;
-	blocks_per_grid = (ceil((double)(amount_of_work)/(double)(threads_per_block)));
-
-	create_seq_gpu_kernel<<<blocks_per_grid, threads_per_block>>>(key_array_device,
-			seed,
-			a,
-			blocks_per_grid,
-			amount_of_work);
+	create_seq_gpu_kernel<<<blocks_per_grid_on_create_seq, 
+		threads_per_block_on_create_seq>>>(key_array_device,
+				seed,
+				a,
+				blocks_per_grid_on_create_seq,
+				amount_of_work_on_create_seq);
 	cudaDeviceSynchronize();
 }
 
@@ -552,38 +603,33 @@ __device__ double find_my_seed_device(int kn,
 
 static void full_verify_gpu(){		
 	int* memory_aux_device;
-	size_t size_memory_aux=sizeof(int)*(AMOUNT_OF_WORK_AT_FULL_VERIFY/THREADS_PER_BLOCK_AT_FULL_VERIFY);		
+	size_t size_memory_aux=sizeof(int)*(amount_of_work_on_full_verify_3/threads_per_block_on_full_verify_3);		
 	cudaMalloc(&memory_aux_device, size_memory_aux);	
 
 	/* full_verify_gpu_kernel_1 */
-	threads_per_block = THREADS_PER_BLOCK;
-	amount_of_work = NUM_KEYS;
-	blocks_per_grid = (ceil((double)(amount_of_work)/(double)(threads_per_block)));
-	full_verify_gpu_kernel_1<<<blocks_per_grid, threads_per_block>>>(key_array_device,
-			key_buff2_device,
-			blocks_per_grid,
-			amount_of_work);
+	full_verify_gpu_kernel_1<<<blocks_per_grid_on_full_verify_1, 
+		threads_per_block_on_full_verify_1>>>(key_array_device,
+				key_buff2_device,
+				blocks_per_grid_on_full_verify_1,
+				amount_of_work_on_full_verify_1);
 	cudaDeviceSynchronize();
 
 	/* full_verify_gpu_kernel_2 */
-	threads_per_block = THREADS_PER_BLOCK;
-	amount_of_work = NUM_KEYS;
-	blocks_per_grid = (ceil((double)(amount_of_work)/(double)(threads_per_block)));
-	full_verify_gpu_kernel_2<<<blocks_per_grid, threads_per_block>>>(key_buff2_device,
-			key_buff1_device,
-			key_array_device,
-			blocks_per_grid,
-			amount_of_work);
+	full_verify_gpu_kernel_2<<<blocks_per_grid_on_full_verify_2, 
+		threads_per_block_on_full_verify_2>>>(key_buff2_device,
+				key_buff1_device,
+				key_array_device,
+				blocks_per_grid_on_full_verify_2,
+				amount_of_work_on_full_verify_2);
 	cudaDeviceSynchronize();
 
 	/* full_verify_gpu_kernel_3 */
-	threads_per_block = THREADS_PER_BLOCK_AT_FULL_VERIFY;
-	amount_of_work = AMOUNT_OF_WORK_AT_FULL_VERIFY;
-	blocks_per_grid = (ceil((double)(amount_of_work)/(double)(threads_per_block)));
-	full_verify_gpu_kernel_3<<<blocks_per_grid, threads_per_block>>>(key_array_device,
-			memory_aux_device,
-			blocks_per_grid,
-			amount_of_work);
+	full_verify_gpu_kernel_3<<<blocks_per_grid_on_full_verify_3, 
+		threads_per_block_on_full_verify_3,
+		size_shared_data_on_full_verify_3>>>(key_array_device,
+				memory_aux_device,
+				blocks_per_grid_on_full_verify_3,
+				amount_of_work_on_full_verify_3);
 	cudaDeviceSynchronize();
 
 	/* reduce on cpu */
@@ -626,7 +672,7 @@ __global__ void full_verify_gpu_kernel_3(int* key_array,
 		int* global_aux,
 		int number_of_blocks,
 		int amount_of_work){
-	__shared__ int shared_aux[THREADS_PER_BLOCK];
+	int* shared_aux = (int*)(extern_share_data);
 
 	int i = (blockIdx.x*blockDim.x+threadIdx.x) + 1;
 
@@ -637,7 +683,7 @@ __global__ void full_verify_gpu_kernel_3(int* key_array,
 
 	__syncthreads();
 
-	for(i=THREADS_PER_BLOCK/2; i>0; i>>=1){
+	for(i=blockDim.x/2; i>0; i>>=1){
 		if(threadIdx.x<i){
 			shared_aux[threadIdx.x] += shared_aux[threadIdx.x+i];
 		}
@@ -693,82 +739,61 @@ __device__ double randlc_device(double* X,
 
 static void rank_gpu(int iteration){
 	/* rank_gpu_kernel_1 */
-	threads_per_block = 1;
-	amount_of_work = 1;
-	blocks_per_grid = 1;
-	rank_gpu_kernel_1<<<blocks_per_grid, threads_per_block>>>(key_array_device,
-			partial_verify_vals_device,
-			index_array_device,
-			iteration,
-			blocks_per_grid,
-			amount_of_work);
-	cudaDeviceSynchronize();
+	rank_gpu_kernel_1<<<blocks_per_grid_on_rank_1, 
+		threads_per_block_on_rank_1>>>(key_array_device,
+				partial_verify_vals_device,
+				index_array_device,
+				iteration,
+				blocks_per_grid_on_rank_1,
+				amount_of_work_on_rank_1);
 
 	/* rank_gpu_kernel_2 */
-	threads_per_block = THREADS_PER_BLOCK_AT_RANK_GPU_KERNEL_2;
-	amount_of_work = AMOUNT_OF_WORK_AT_RANK_GPU_KERNEL_2;
-	blocks_per_grid = (ceil((double)(amount_of_work)/(double)(threads_per_block)));
-	rank_gpu_kernel_2<<<blocks_per_grid, threads_per_block>>>(key_buff1_device,
-			blocks_per_grid,
-			amount_of_work);
-	cudaDeviceSynchronize();
+	rank_gpu_kernel_2<<<blocks_per_grid_on_rank_2, 
+		threads_per_block_on_rank_2>>>(key_buff1_device,
+				blocks_per_grid_on_rank_2,
+				amount_of_work_on_rank_2);
 
 	/* rank_gpu_kernel_3 */
-	threads_per_block = THREADS_PER_BLOCK_AT_RANK_GPU_KERNEL_3;
-	amount_of_work = AMOUNT_OF_WORK_AT_RANK_GPU_KERNEL_3;
-	blocks_per_grid = (ceil((double)(amount_of_work)/(double)(threads_per_block)));
-	rank_gpu_kernel_3<<<blocks_per_grid, threads_per_block>>>(key_buff1_device,
-			key_array_device,
-			blocks_per_grid,
-			amount_of_work);
-	cudaDeviceSynchronize();
+	rank_gpu_kernel_3<<<blocks_per_grid_on_rank_3, 
+		threads_per_block_on_rank_3>>>(key_buff1_device,
+				key_array_device,
+				blocks_per_grid_on_rank_3,
+				amount_of_work_on_rank_3);
 
 	/* rank_gpu_kernel_4 */
-	threads_per_block = THREADS_PER_BLOCK;
-	amount_of_work = THREADS_PER_BLOCK * THREADS_PER_BLOCK;
-	if(amount_of_work > MAX_KEY){amount_of_work = MAX_KEY;}
-	blocks_per_grid = (ceil((double)(amount_of_work)/(double)(threads_per_block)));
-	rank_gpu_kernel_4<<<blocks_per_grid, threads_per_block>>>(key_buff1_device,
-			key_buff1_device,
-			sum_device,
-			blocks_per_grid,
-			amount_of_work);
-	cudaDeviceSynchronize();
+	rank_gpu_kernel_4<<<blocks_per_grid_on_rank_4, 
+		threads_per_block_on_rank_4,
+		size_shared_data_on_rank_4>>>(key_buff1_device,
+				key_buff1_device,
+				sum_device,
+				blocks_per_grid_on_rank_4,
+				amount_of_work_on_rank_4);
 
 	/* rank_gpu_kernel_5 */
-	threads_per_block = THREADS_PER_BLOCK;
-	amount_of_work = THREADS_PER_BLOCK;
-	blocks_per_grid = (ceil((double)(amount_of_work)/(double)(threads_per_block)));
-	rank_gpu_kernel_5<<<blocks_per_grid, threads_per_block>>>(sum_device,
-			sum_device,
-			blocks_per_grid,
-			amount_of_work);
-	cudaDeviceSynchronize();
+	rank_gpu_kernel_5<<<blocks_per_grid_on_rank_5, 
+		threads_per_block_on_rank_5,
+		size_shared_data_on_rank_5>>>(sum_device,
+				sum_device,
+				blocks_per_grid_on_rank_5,
+				amount_of_work_on_rank_5);
 
 	/* rank_gpu_kernel_6 */
-	threads_per_block = THREADS_PER_BLOCK;
-	amount_of_work = THREADS_PER_BLOCK * THREADS_PER_BLOCK;
-	if(amount_of_work > MAX_KEY){amount_of_work = MAX_KEY;}
-	blocks_per_grid = (ceil((double)(amount_of_work)/(double)(threads_per_block)));
-	rank_gpu_kernel_6<<<blocks_per_grid, threads_per_block>>>(key_buff1_device,
-			key_buff1_device,
-			sum_device,
-			blocks_per_grid,
-			amount_of_work);
-	cudaDeviceSynchronize();
+	rank_gpu_kernel_6<<<blocks_per_grid_on_rank_6, 
+		threads_per_block_on_rank_6>>>(key_buff1_device,
+				key_buff1_device,
+				sum_device,
+				blocks_per_grid_on_rank_6,
+				amount_of_work_on_rank_6);
 
 	/* rank_gpu_kernel_7 */
-	threads_per_block = 1;
-	amount_of_work = 1;
-	blocks_per_grid = 1;
-	rank_gpu_kernel_7<<<blocks_per_grid, threads_per_block>>>(partial_verify_vals_device,
-			key_buff1_device,
-			rank_array_device,
-			passed_verification_device,
-			iteration,
-			blocks_per_grid,
-			amount_of_work);
-	cudaDeviceSynchronize();
+	rank_gpu_kernel_7<<<blocks_per_grid_on_rank_7, 
+		threads_per_block_on_rank_7>>>(partial_verify_vals_device,
+				key_buff1_device,
+				rank_array_device,
+				passed_verification_device,
+				iteration,
+				blocks_per_grid_on_rank_7,
+				amount_of_work_on_rank_7);
 }
 
 __global__ void rank_gpu_kernel_1(int* key_array,
@@ -786,6 +811,7 @@ __global__ void rank_gpu_kernel_1(int* key_array,
 	 * load into top of array bucket_size  
 	 * --------------------------------------------------------------------
 	 */
+#pragma unroll
 	for(int i=0; i<TEST_ARRAY_SIZE; i++){
 		partial_verify_vals[i] = key_array[test_index_array[i]];
 	}
@@ -808,8 +834,7 @@ __global__ void rank_gpu_kernel_3(int* key_buff_ptr,
 	 * individual population  
 	 * --------------------------------------------------------------------
 	 */
-	int key = key_buff_ptr2[blockIdx.x*blockDim.x+threadIdx.x];
-	atomicAdd(&key_buff_ptr[key], 1);
+	atomicAdd(&key_buff_ptr[key_buff_ptr2[blockIdx.x*blockDim.x+threadIdx.x]], 1);
 }
 
 __global__ void rank_gpu_kernel_4(int* source,
@@ -817,7 +842,7 @@ __global__ void rank_gpu_kernel_4(int* source,
 		int* sum,
 		int number_of_blocks,
 		int amount_of_work){
-	__shared__ int shared_data[SHARE_MEMORY_ON_RANK_GPU_KERNEL_4];
+	int* shared_data = (int*)(extern_share_data);
 
 	shared_data[threadIdx.x] = 0;
 	int position = blockDim.x + threadIdx.x;
@@ -848,7 +873,7 @@ __global__ void rank_gpu_kernel_5(int* source,
 		int* destiny,
 		int number_of_blocks,
 		int amount_of_work){
-	__shared__ int shared_data[SHARE_MEMORY_ON_RANK_GPU_KERNEL_5];
+	int* shared_data = (int*)(extern_share_data);
 
 	shared_data[threadIdx.x] = 0;
 	int position = blockDim.x + threadIdx.x;
@@ -1004,25 +1029,121 @@ static void release_gpu(){
 }
 
 static void setup_gpu(){
-	THREADS_PER_BLOCK_AT_CREATE_SEQ_GPU_KERNEL = 64;
-	AMOUNT_OF_WORK_AT_CREATE_SEQ_GPU_KERNEL = THREADS_PER_BLOCK_AT_CREATE_SEQ_GPU_KERNEL * 256;
-	THREADS_PER_BLOCK_AT_RANK_GPU_KERNEL_2 = THREADS_PER_BLOCK;
-	AMOUNT_OF_WORK_AT_RANK_GPU_KERNEL_2 = MAX_KEY;
-	THREADS_PER_BLOCK_AT_RANK_GPU_KERNEL_3 = THREADS_PER_BLOCK;
-	AMOUNT_OF_WORK_AT_RANK_GPU_KERNEL_3 = NUM_KEYS;
-	THREADS_PER_BLOCK_AT_FULL_VERIFY = THREADS_PER_BLOCK;
-	AMOUNT_OF_WORK_AT_FULL_VERIFY = NUM_KEYS;
+	/*
+	 * struct cudaDeviceProp{
+	 *  char name[256];
+	 *  size_t totalGlobalMem;
+	 *  size_t sharedMemPerBlock;
+	 *  int regsPerBlock;
+	 *  int warpSize;
+	 *  size_t memPitch;
+	 *  int maxThreadsPerBlock;
+	 *  int maxThreadsDim[3];
+	 *  int maxGridSize[3];
+	 *  size_t totalConstMem;
+	 *  int major;
+	 *  int minor;
+	 *  int clockRate;
+	 *  size_t textureAlignment;
+	 *  int deviceOverlap;
+	 *  int multiProcessorCount;
+	 *  int kernelExecTimeoutEnabled;
+	 *  int integrated;
+	 *  int canMapHostMemory;
+	 *  int computeMode;
+	 *  int concurrentKernels;
+	 *  int ECCEnabled;
+	 *  int pciBusID;
+	 *  int pciDeviceID;
+	 *  int tccDriver;
+	 * }
+	 */
+	/* amount of available devices */ 
+	cudaGetDeviceCount(&total_devices);
 
-	size_test_array_device = sizeof(int) * TEST_ARRAY_SIZE;
-	size_key_array_device = sizeof(int) * SIZE_OF_BUFFERS; 
-	size_key_buff1_device = sizeof(int) * MAX_KEY; 
-	size_key_buff2_device = sizeof(int) * SIZE_OF_BUFFERS;
-	size_index_array_device = sizeof(int) * TEST_ARRAY_SIZE; 
-	size_rank_array_device = sizeof(int) * TEST_ARRAY_SIZE;
-	size_partial_verify_vals_device = sizeof(int) * TEST_ARRAY_SIZE;
-	size_passed_verification_device = sizeof(int) * 1;
-	size_key_scan_device = sizeof(int) * MAX_KEY; 
-	size_sum_device = sizeof(int) * THREADS_PER_BLOCK;
+	/* define gpu_device */
+	if(total_devices==0){
+		printf("\n\n\nNo Nvidia GPU found!\n\n\n");
+		exit(-1);
+	}else if((GPU_DEVICE>=0)&&
+			(GPU_DEVICE<total_devices)){
+		gpu_device_id = GPU_DEVICE;
+	}else{
+		gpu_device_id = 0;
+	}
+	cudaSetDevice(gpu_device_id);	
+	cudaGetDeviceProperties(&gpu_device_properties, gpu_device_id);
+
+	/* define threads_per_block */
+	if((IS_THREADS_PER_BLOCK_ON_CREATE_SEQ>=1)&&
+			(IS_THREADS_PER_BLOCK_ON_CREATE_SEQ<=gpu_device_properties.maxThreadsPerBlock)){
+		threads_per_block_on_create_seq = IS_THREADS_PER_BLOCK_ON_CREATE_SEQ;
+	}else{
+		threads_per_block_on_create_seq = gpu_device_properties.warpSize;
+	}
+	if((IS_THREADS_PER_BLOCK_ON_RANK>=1)&&
+			(IS_THREADS_PER_BLOCK_ON_RANK<=gpu_device_properties.maxThreadsPerBlock)){
+		threads_per_block_on_rank = IS_THREADS_PER_BLOCK_ON_RANK;
+	}else{
+		threads_per_block_on_rank = gpu_device_properties.warpSize;
+	}
+	if((IS_THREADS_PER_BLOCK_ON_FULL_VERIFY>=1)&&
+			(IS_THREADS_PER_BLOCK_ON_FULL_VERIFY<=gpu_device_properties.maxThreadsPerBlock)){
+		threads_per_block_on_full_verify = IS_THREADS_PER_BLOCK_ON_FULL_VERIFY;
+	}else{
+		threads_per_block_on_full_verify = gpu_device_properties.warpSize;
+	}	
+
+	threads_per_block_on_rank_1=1;
+	threads_per_block_on_rank_2=threads_per_block_on_rank;
+	threads_per_block_on_rank_3=threads_per_block_on_rank;
+	threads_per_block_on_rank_4=threads_per_block_on_rank;
+	threads_per_block_on_rank_5=threads_per_block_on_rank;
+	threads_per_block_on_rank_6=threads_per_block_on_rank;
+	threads_per_block_on_rank_7=1;
+	threads_per_block_on_full_verify_1=threads_per_block_on_full_verify;
+	threads_per_block_on_full_verify_2=threads_per_block_on_full_verify;
+	threads_per_block_on_full_verify_3=threads_per_block_on_full_verify;
+
+	amount_of_work_on_create_seq=threads_per_block_on_create_seq*threads_per_block_on_create_seq;
+	amount_of_work_on_rank_1=1;
+	amount_of_work_on_rank_2=MAX_KEY;
+	amount_of_work_on_rank_3=NUM_KEYS;
+	amount_of_work_on_rank_4=threads_per_block_on_rank_4*threads_per_block_on_rank_4;
+	amount_of_work_on_rank_5=threads_per_block_on_rank_5;
+	amount_of_work_on_rank_6=threads_per_block_on_rank_6*threads_per_block_on_rank_6;
+	amount_of_work_on_rank_7=1;
+	amount_of_work_on_full_verify_1=NUM_KEYS;
+	amount_of_work_on_full_verify_2=NUM_KEYS;
+	amount_of_work_on_full_verify_3=NUM_KEYS;
+
+	blocks_per_grid_on_create_seq=(ceil((double)(amount_of_work_on_create_seq)/(double)(threads_per_block_on_create_seq)));
+	blocks_per_grid_on_rank_1=1;
+	blocks_per_grid_on_rank_2=(ceil((double)(amount_of_work_on_rank_2)/(double)(threads_per_block_on_rank_2)));
+	blocks_per_grid_on_rank_3=(ceil((double)(amount_of_work_on_rank_3)/(double)(threads_per_block_on_rank_3)));
+	if(amount_of_work_on_rank_4 > MAX_KEY){amount_of_work_on_rank_4=MAX_KEY;}
+	blocks_per_grid_on_rank_4=(ceil((double)(amount_of_work_on_rank_4)/(double)(threads_per_block_on_rank_4)));
+	blocks_per_grid_on_rank_5=1;
+	if(amount_of_work_on_rank_6 > MAX_KEY){amount_of_work_on_rank_6=MAX_KEY;}
+	blocks_per_grid_on_rank_6=(ceil((double)(amount_of_work_on_rank_6)/(double)(threads_per_block_on_rank_6)));
+	blocks_per_grid_on_rank_7=1;
+	blocks_per_grid_on_full_verify_1=(ceil((double)(amount_of_work_on_full_verify_1)/(double)(threads_per_block_on_full_verify_1)));
+	blocks_per_grid_on_full_verify_2=(ceil((double)(amount_of_work_on_full_verify_2)/(double)(threads_per_block_on_full_verify_2)));
+	blocks_per_grid_on_full_verify_3=(ceil((double)(amount_of_work_on_full_verify_3)/(double)(threads_per_block_on_full_verify_3)));
+
+	size_test_array_device=TEST_ARRAY_SIZE*sizeof(int);
+	size_key_array_device=SIZE_OF_BUFFERS*sizeof(int); 
+	size_key_buff1_device=MAX_KEY*sizeof(int); 
+	size_key_buff2_device=SIZE_OF_BUFFERS*sizeof(int);
+	size_index_array_device=TEST_ARRAY_SIZE*sizeof(int); 
+	size_rank_array_device=TEST_ARRAY_SIZE*sizeof(int);
+	size_partial_verify_vals_device=TEST_ARRAY_SIZE*sizeof(int);
+	size_passed_verification_device=1*sizeof(int);
+	size_key_scan_device=MAX_KEY*sizeof(int); 
+	size_sum_device=threads_per_block_on_rank*sizeof(int);
+	size_shared_data_on_rank_4=2*threads_per_block_on_rank_4*sizeof(int);
+	size_shared_data_on_rank_5=2*threads_per_block_on_rank_5*sizeof(int);
+	size_shared_data_on_full_verify_3=threads_per_block_on_full_verify_3*sizeof(int);
 
 	cudaMalloc(&key_array_device, size_key_array_device);
 	cudaMalloc(&key_buff1_device, size_key_buff1_device);

@@ -71,25 +71,14 @@
 #define MM (10)
 #define	A (pow(5.0,13.0))
 #define	X (314159265.0)
-#define T_INIT (0)
-#define T_BENCH (1)
-#define T_MG3P (2)
-#define T_PSINV (3)
-#define T_RESID (4)
-#define T_RESID2 (5)
-#define T_RPRJ3 (6)
-#define T_INTERP (7)
-#define T_NORM2 (8)
-#define T_COMM3 (9)
-#define T_LAST (10)
-#define THREADS_PER_BLOCK (1024) //1024
-#define THREADS_PER_BLOCK_ON_NORM2U3 (128) //128
-#define THREADS_PER_BLOCK_ON_COMM3 (32) //32
-#define THREADS_PER_BLOCK_ON_ZERO3 (1024) //1024
-//#define SHARED_2_M (2*M*sizeof(double))
-//#define SHARED_3_M (3*M*sizeof(double))
-//#define SHARED_2_NORM (2*THREADS_PER_BLOCK_ON_NORM2U3*sizeof(double))
-
+#define PROFILING_TOTAL_TIME (0)
+#define PROFILING_COMM3 (1)
+#define PROFILING_INTERP (2)
+#define PROFILING_NORM2U3 (3)
+#define PROFILING_PSINV (4)
+#define PROFILING_RESID (5)
+#define PROFILING_RPRJ3 (6)
+#define PROFILING_ZERO3 (7)
 
 /* global variables */
 #if defined(DO_NOT_ALLOCATE_ARRAYS_WITH_DYNAMIC_MEMORY_AND_AS_SINGLE_DIMENSION)
@@ -118,11 +107,7 @@ static double (*v)=(double*)malloc(sizeof(double)*(NV));
 static double (*r)=(double*)malloc(sizeof(double)*(NR));
 #endif
 static int is1, is2, is3, ie1, ie2, ie3, lt, lb;
-static boolean timeron;
 /* gpu variables */
-int threads_per_block;
-int blocks_per_grid;
-int amount_of_work;
 size_t size_a_device;
 size_t size_c_device;
 size_t size_u_device;
@@ -133,7 +118,22 @@ double* c_device;
 double* u_device;
 double* v_device;
 double* r_device;
-//extern __shared__ double extern_share_data[];
+int threads_per_block_on_comm3;
+int threads_per_block_on_interp;
+int threads_per_block_on_norm2u3;
+int threads_per_block_on_psinv;
+int threads_per_block_on_resid;
+int threads_per_block_on_rprj3;
+int threads_per_block_on_zero3;
+size_t size_shared_data_on_interp;
+size_t size_shared_data_on_norm2u3;
+size_t size_shared_data_on_psinv;
+size_t size_shared_data_on_resid;
+size_t size_shared_data_on_rprj3;
+int gpu_device_id;
+int total_devices;
+cudaDeviceProp gpu_device_properties;
+extern __shared__ double extern_share_data[];
 
 /* function prototypes */
 static void bubble(double ten[][MM], 
@@ -184,8 +184,8 @@ static void interp_gpu(double* z_device,
 		int n2, 
 		int n3, 
 		int k);
-__global__ void interp_gpu_kernel(double* base_z,
-		double* base_u,
+__global__ void interp_gpu_kernel(double* z_device,
+		double* u_device,
 		int mm1, 
 		int mm2, 
 		int mm3,
@@ -309,8 +309,8 @@ static void rprj3_gpu(double* r_device,
 		int m2j, 
 		int m3j, 
 		int k);
-__global__ void rprj3_gpu_kernel(double* base_r,
-		double* base_s,
+__global__ void rprj3_gpu_kernel(double* r_device,
+		double* s_device,
 		int m1k,
 		int m2k,
 		int m3k,
@@ -357,6 +357,9 @@ int main(int argc, char** argv){
 #if defined(DO_NOT_ALLOCATE_ARRAYS_WITH_DYNAMIC_MEMORY_AND_AS_SINGLE_DIMENSION)
 	printf(" DO_NOT_ALLOCATE_ARRAYS_WITH_DYNAMIC_MEMORY_AND_AS_SINGLE_DIMENSION mode on\n");
 #endif
+#if defined(PROFILING)
+	printf(" PROFILING mode on\n");
+#endif
 	/*
 	 * -------------------------------------------------------------------------
 	 * k is the current level. it is passed down through subroutine args
@@ -364,7 +367,7 @@ int main(int argc, char** argv){
 	 * -------------------------------------------------------------------------
 	 */
 	int k, it;
-	double t, tinit, mflops;
+	double t, mflops;
 
 	double a[4], c[4];
 
@@ -375,73 +378,20 @@ int main(int argc, char** argv){
 	char class_npb;
 
 	int i;
-	char* t_names[T_LAST];
-	double tmax;
-
-	for(i=T_INIT; i<T_LAST; i++){
-		timer_clear(i);
-	}
-
-	timer_start(T_INIT);	
 
 	/*
 	 * ----------------------------------------------------------------------
 	 * read in and broadcast input data
 	 * ----------------------------------------------------------------------
 	 */
-	FILE* fp;
-	if((fp = fopen("timer.flag", "r")) != NULL){
-		timeron = TRUE;
-		t_names[T_INIT] = (char*) "init";
-		t_names[T_BENCH] = (char*) "benchmk";
-		t_names[T_MG3P] = (char*) "mg3P";
-		t_names[T_PSINV] = (char*) "psinv";
-		t_names[T_RESID] = (char*) "resid";
-		t_names[T_RPRJ3] = (char*) "rprj3";
-		t_names[T_INTERP] = (char*) "interp";
-		t_names[T_NORM2] = (char*) "norm2";
-		t_names[T_COMM3] = (char*) "comm3";
-		fclose(fp);
-	}else{
-		timeron = FALSE;
+	lt = LT_DEFAULT;
+	nit = NIT_DEFAULT;
+	nx[lt] = NX_DEFAULT;
+	ny[lt] = NY_DEFAULT;
+	nz[lt] = NZ_DEFAULT;
+	for(i = 0; i <= 7; i++){
+		debug_vec[i] = DEBUG_DEFAULT;
 	}
-	fp = fopen("mg.input", "r");
-	if(fp != NULL){
-		printf(" Reading from input file mg.input\n");
-		if(fscanf(fp, "%d", &lt) != 1){
-			printf(" Error in reading elements\n");
-			exit(1);
-		}
-		while(fgetc(fp) != '\n');
-		if(fscanf(fp, "%d%d%d", &nx[lt], &ny[lt], &nz[lt]) != 3){
-			printf(" Error in reading elements\n");
-			exit(1);
-		}
-		while(fgetc(fp) != '\n');
-		if(fscanf(fp, "%d", &nit) != 1){
-			printf(" Error in reading elements\n");
-			exit(1);
-		}
-		while(fgetc(fp) != '\n');
-		for(i = 0; i <= 7; i++) {
-			if(fscanf(fp, "%d", &debug_vec[i]) != 1){
-				printf(" Error in reading elements\n");
-				exit(1);
-			}
-		}
-		fclose(fp);
-	}else{
-		printf(" No input file. Using compiled defaults\n");
-		lt = LT_DEFAULT;
-		nit = NIT_DEFAULT;
-		nx[lt] = NX_DEFAULT;
-		ny[lt] = NY_DEFAULT;
-		nz[lt] = NZ_DEFAULT;
-		for(i = 0; i <= 7; i++){
-			debug_vec[i] = DEBUG_DEFAULT;
-		}
-	}
-
 	if((nx[lt] != ny[lt]) || (nx[lt] != nz[lt])){
 		class_npb = 'U';
 	}else if(nx[lt] == 32 && nit == 4){
@@ -526,36 +476,31 @@ int main(int argc, char** argv){
 	zero3(u,n1,n2,n3);
 	zran3(v,n1,n2,n3,nx[lt],ny[lt],k);
 
-	timer_stop(T_INIT);
-	tinit = timer_read(T_INIT);
-	printf(" Initialization time: %15.3f seconds\n", tinit);
-
-	for(i=T_BENCH; i<T_LAST; i++){
-		timer_clear(i);
-	} 
-
 	setup_gpu(a,c);
 
-	timer_start(T_BENCH);
+	timer_clear(PROFILING_TOTAL_TIME);
+#if defined(PROFILING)
+	timer_clear(PROFILING_COMM3);
+	timer_clear(PROFILING_INTERP);
+	timer_clear(PROFILING_NORM2U3);
+	timer_clear(PROFILING_PSINV);
+	timer_clear(PROFILING_RESID);
+	timer_clear(PROFILING_RPRJ3);
+	timer_clear(PROFILING_ZERO3);
+#endif
 
-	if(timeron){timer_start(T_RESID2);}
-	resid_gpu(u_device,v_device,r_device,n1,n2,n3,a_device,k);
-	if(timeron){timer_stop(T_RESID2);}
+	timer_start(PROFILING_TOTAL_TIME);
+
+	resid_gpu(u_device,v_device,r_device,n1,n2,n3,a_device,k);	
 	norm2u3_gpu(r_device,n1,n2,n3,&rnm2,&rnmu,nx[lt],ny[lt],nz[lt]);
-
 	for(it = 1; it <= nit; it++){
-		//if((it==1)||(it==nit)||((it%5)==0)){printf("  iter %3d\n",it);}
-		if(timeron){timer_start(T_MG3P);}
 		mg3P_gpu(u_device,v_device,r_device,a_device,c_device,n1,n2,n3,k);
-		if(timeron){timer_stop(T_MG3P);}
-		if(timeron){timer_start(T_RESID2);}
 		resid_gpu(u_device,v_device,r_device,n1,n2,n3,a_device,k);
-		if(timeron){timer_stop(T_RESID2);}
 	}
 	norm2u3_gpu(r_device,n1,n2,n3,&rnm2,&rnmu,nx[lt],ny[lt],nz[lt]);
 
-	timer_stop(T_BENCH);
-	t = timer_read(T_BENCH);  	
+	timer_stop(PROFILING_TOTAL_TIME);
+	t = timer_read(PROFILING_TOTAL_TIME);  	
 
 	verified = FALSE;
 	verify_value = 0.0;	
@@ -605,6 +550,44 @@ int main(int argc, char** argv){
 		mflops = 0.0;
 	}
 
+	char gpu_config[256];
+	char gpu_config_string[2048];
+#if defined(PROFILING)
+	sprintf(gpu_config, "%5s\t%25s\t%25s\t%25s\n", "GPU Kernel", "Threads Per Block", "Time in Seconds", "Time in Percentage");
+	strcpy(gpu_config_string, gpu_config);
+	sprintf(gpu_config, "%29s\t%25d\t%25f\t%24.2f%%\n", " comm3", threads_per_block_on_comm3, timer_read(PROFILING_COMM3), (timer_read(PROFILING_COMM3)*100/timer_read(PROFILING_TOTAL_TIME)));
+	strcat(gpu_config_string, gpu_config);
+	sprintf(gpu_config, "%29s\t%25d\t%25f\t%24.2f%%\n", " interp", threads_per_block_on_interp, timer_read(PROFILING_INTERP), (timer_read(PROFILING_INTERP)*100/timer_read(PROFILING_TOTAL_TIME)));
+	strcat(gpu_config_string, gpu_config);
+	sprintf(gpu_config, "%29s\t%25d\t%25f\t%24.2f%%\n", " norm2u3", threads_per_block_on_norm2u3, timer_read(PROFILING_NORM2U3), (timer_read(PROFILING_NORM2U3)*100/timer_read(PROFILING_TOTAL_TIME)));
+	strcat(gpu_config_string, gpu_config);
+	sprintf(gpu_config, "%29s\t%25d\t%25f\t%24.2f%%\n", " psinv", threads_per_block_on_psinv, timer_read(PROFILING_PSINV), (timer_read(PROFILING_PSINV)*100/timer_read(PROFILING_TOTAL_TIME)));
+	strcat(gpu_config_string, gpu_config);
+	sprintf(gpu_config, "%29s\t%25d\t%25f\t%24.2f%%\n", " resid", threads_per_block_on_resid, timer_read(PROFILING_RESID), (timer_read(PROFILING_RESID)*100/timer_read(PROFILING_TOTAL_TIME)));
+	strcat(gpu_config_string, gpu_config);
+	sprintf(gpu_config, "%29s\t%25d\t%25f\t%24.2f%%\n", " rprj3", threads_per_block_on_rprj3, timer_read(PROFILING_RPRJ3), (timer_read(PROFILING_RPRJ3)*100/timer_read(PROFILING_TOTAL_TIME)));
+	strcat(gpu_config_string, gpu_config);
+	sprintf(gpu_config, "%29s\t%25d\t%25f\t%24.2f%%\n", " zero3", threads_per_block_on_zero3, timer_read(PROFILING_ZERO3), (timer_read(PROFILING_ZERO3)*100/timer_read(PROFILING_TOTAL_TIME)));
+	strcat(gpu_config_string, gpu_config);
+#else
+	sprintf(gpu_config, "%5s\t%25s\n", "GPU Kernel", "Threads Per Block");
+	strcpy(gpu_config_string, gpu_config);
+	sprintf(gpu_config, "%29s\t%25d\n", " comm3", threads_per_block_on_comm3);
+	strcat(gpu_config_string, gpu_config);
+	sprintf(gpu_config, "%29s\t%25d\n", " interp", threads_per_block_on_interp);
+	strcat(gpu_config_string, gpu_config);
+	sprintf(gpu_config, "%29s\t%25d\n", " norm2u3", threads_per_block_on_norm2u3);
+	strcat(gpu_config_string, gpu_config);
+	sprintf(gpu_config, "%29s\t%25d\n", " psinv", threads_per_block_on_psinv);
+	strcat(gpu_config_string, gpu_config);
+	sprintf(gpu_config, "%29s\t%25d\n", " resid", threads_per_block_on_resid);
+	strcat(gpu_config_string, gpu_config);
+	sprintf(gpu_config, "%29s\t%25d\n", " rprj3", threads_per_block_on_rprj3);
+	strcat(gpu_config_string, gpu_config);
+	sprintf(gpu_config, "%29s\t%25d\n", " zero3", threads_per_block_on_zero3);
+	strcat(gpu_config_string, gpu_config);
+#endif
+
 	c_print_results((char*)"MG",
 			class_npb,
 			nx[lt],
@@ -617,6 +600,11 @@ int main(int argc, char** argv){
 			verified,
 			(char*)NPBVERSION,
 			(char*)COMPILETIME,
+			(char*)COMPILERVERSION,
+			(char*)LIBVERSION,
+			(char*)CPU_MODEL,
+			(char*)gpu_device_properties.name,
+			(char*)gpu_config_string,
 			(char*)CS1,
 			(char*)CS2,
 			(char*)CS3,
@@ -624,26 +612,6 @@ int main(int argc, char** argv){
 			(char*)CS5,
 			(char*)CS6,
 			(char*)CS7);
-
-	/*
-	 * ---------------------------------------------------------------------
-	 * more timers
-	 * ---------------------------------------------------------------------
-	 */
-	if(timeron){
-		tmax = timer_read(T_BENCH);
-		if(tmax==0.0){tmax=1.0;}
-		printf("  SECTION   Time (secs)\n");
-		for(i=T_BENCH; i<T_LAST; i++){
-			t = timer_read(i);
-			if(i==T_RESID2){
-				t = timer_read(T_RESID) - t;
-				printf("    --> %8s:%9.3f  (%6.2f%%)\n", "mg-resid", t, t*100.0/tmax);
-			}else{
-				printf("  %-8s:%9.3f  (%6.2f%%)\n", t_names[i], t, t*100.0/tmax);
-			}
-		}
-	}
 
 	release_gpu();
 
@@ -724,7 +692,6 @@ static void comm3(void* pointer_u,
 	double (*u)[n2][n1] = (double (*)[n2][n1])pointer_u;
 
 	int i1, i2, i3;
-	if(timeron){timer_start(T_COMM3);}
 	/* axis = 1 */
 	for(i3 = 1; i3 < n3-1; i3++){
 		for(i2 = 1; i2 < n2-1; i2++){
@@ -746,7 +713,6 @@ static void comm3(void* pointer_u,
 			u[n3-1][i2][i1] = u[1][i2][i1];			
 		}
 	}
-	if(timeron){timer_stop(T_COMM3);}
 }
 
 static void comm3_gpu(double* u_device, 
@@ -754,42 +720,63 @@ static void comm3_gpu(double* u_device,
 		int n2, 
 		int n3, 
 		int kk){
-	if(timeron){timer_start(T_COMM3);}
+#if defined(PROFILING)
+	timer_start(PROFILING_COMM3);
+#endif
 
-	int threads_per_block = THREADS_PER_BLOCK_ON_COMM3;
-	int amount_of_work = (n3-2) * THREADS_PER_BLOCK_ON_COMM3;
-	int blocks_per_grid = (ceil((double)(amount_of_work)/(double)(threads_per_block)));
+	/* axis = 1 */
+	int threads_per_block_x=threads_per_block_on_comm3;
+	int threads_per_block_y=1;
+	int amount_of_work_x=(ceil(double(n2-2)/double(threads_per_block_x)))*threads_per_block_x;
+	int amount_of_work_y=n3-2;
+	dim3 threadsPerBlock(threads_per_block_x,
+			threads_per_block_y,
+			1);
+	dim3 blocksPerGrid(ceil(double(amount_of_work_x)/double(threadsPerBlock.x)),
+			ceil(double(amount_of_work_y)/double(threadsPerBlock.y)),
+			1);
+	comm3_gpu_kernel_1<<<blocksPerGrid,
+		threadsPerBlock>>>(u_device,
+				n1,
+				n2,
+				n3,
+				amount_of_work_x);
 
-	comm3_gpu_kernel_1<<<blocks_per_grid,threads_per_block>>>(u_device,
-			n1,
-			n2,
-			n3,
-			amount_of_work);
-	cudaDeviceSynchronize();
+	/* axis = 2 */
+	threads_per_block_x=threads_per_block_on_comm3;
+	threads_per_block_y=1;
+	amount_of_work_x=(ceil(double(n1)/double(threads_per_block_x)))*threads_per_block_x;
+	amount_of_work_y=n3-2;
+	threadsPerBlock.x=threads_per_block_x;
+	threadsPerBlock.y=threads_per_block_y;
+	blocksPerGrid.x=ceil(double(amount_of_work_x)/double(threadsPerBlock.x));
+	blocksPerGrid.y=ceil(double(amount_of_work_y)/double(threadsPerBlock.y));
+	comm3_gpu_kernel_2<<<blocksPerGrid,	
+		threadsPerBlock>>>(u_device,
+				n1,
+				n2,
+				n3,
+				amount_of_work_x);
 
-	threads_per_block = THREADS_PER_BLOCK_ON_COMM3;
-	amount_of_work = (n3-2) * THREADS_PER_BLOCK_ON_COMM3;	
-	blocks_per_grid = (ceil((double)(amount_of_work)/(double)(threads_per_block)));
+	/* axis = 3 */
+	threads_per_block_x=threads_per_block_on_comm3;
+	threads_per_block_y=1;
+	amount_of_work_x=(ceil(double(n1)/double(threads_per_block_x)))*threads_per_block_x;
+	amount_of_work_y=n2;
+	threadsPerBlock.x=threads_per_block_x;
+	threadsPerBlock.y=threads_per_block_y;
+	blocksPerGrid.x=ceil(double(amount_of_work_x) / double(threadsPerBlock.x));
+	blocksPerGrid.y=ceil(double(amount_of_work_y) / double(threadsPerBlock.y));
+	comm3_gpu_kernel_3<<<blocksPerGrid,
+		threadsPerBlock>>>(u_device,
+				n1,
+				n2,
+				n3,
+				amount_of_work_x);
 
-	comm3_gpu_kernel_2<<<blocks_per_grid,threads_per_block>>>(u_device,
-			n1,
-			n2,
-			n3,
-			amount_of_work);
-	cudaDeviceSynchronize();
-
-	threads_per_block = THREADS_PER_BLOCK_ON_COMM3;
-	amount_of_work = n2 * THREADS_PER_BLOCK_ON_COMM3;
-	blocks_per_grid = (ceil((double)(amount_of_work)/(double)(threads_per_block)));
-
-	comm3_gpu_kernel_3<<<blocks_per_grid,threads_per_block>>>(u_device,
-			n1,
-			n2,
-			n3,
-			amount_of_work);
-	cudaDeviceSynchronize();
-
-	if(timeron){timer_stop(T_COMM3);}
+#if defined(PROFILING)
+	timer_stop(PROFILING_COMM3);
+#endif
 }
 
 __global__ void comm3_gpu_kernel_1(double* u, 
@@ -797,17 +784,13 @@ __global__ void comm3_gpu_kernel_1(double* u,
 		int n2, 
 		int n3, 
 		int amount_of_work){
-	int check=blockIdx.x*blockDim.x+threadIdx.x;
-	if(check>=amount_of_work){return;}
+	int i3=blockIdx.y*blockDim.y+threadIdx.y+1;
+	int i2=blockIdx.x*blockDim.x+threadIdx.x+1;
 
-	int i3=blockIdx.x+1;
-	int i2=threadIdx.x+1;
+	if(i2>=n2-1){return;}
 
-	while(i2<n2-1){
-		u[i3*n2*n1+i2*n1+0]=u[i3*n2*n1+i2*n1+n1-2];
-		u[i3*n2*n1+i2*n1+n1-1]=u[i3*n2*n1+i2*n1+1];
-		i2+=THREADS_PER_BLOCK_ON_COMM3;
-	}
+	u[i3*n2*n1+i2*n1+0]=u[i3*n2*n1+i2*n1+n1-2];
+	u[i3*n2*n1+i2*n1+n1-1]=u[i3*n2*n1+i2*n1+1];
 }
 
 __global__ void comm3_gpu_kernel_2(double* u,
@@ -815,17 +798,13 @@ __global__ void comm3_gpu_kernel_2(double* u,
 		int n2,
 		int n3,
 		int amount_of_work){
-	int check=blockIdx.x*blockDim.x+threadIdx.x;
-	if(check>=amount_of_work){return;}
+	int i3=blockIdx.y*blockDim.y+threadIdx.y+1;
+	int i1=blockIdx.x*blockDim.x+threadIdx.x;
 
-	int i3=blockIdx.x + 1;
-	int i1=threadIdx.x;
+	if(i1>=n1){return;}
 
-	while(i1<n1){
-		u[i3*n2*n1+0*n1+i1]=u[i3*n2*n1+(n2-2)*n1+i1];
-		u[i3*n2*n1+(n2-1)*n1+i1]=u[i3*n2*n1+1*n1+i1];
-		i1+=THREADS_PER_BLOCK_ON_COMM3;
-	}
+	u[i3*n2*n1+0*n1+i1]=u[i3*n2*n1+(n2-2)*n1+i1];
+	u[i3*n2*n1+(n2-1)*n1+i1]=u[i3*n2*n1+1*n1+i1];
 }
 
 __global__ void comm3_gpu_kernel_3(double* u,
@@ -833,17 +812,13 @@ __global__ void comm3_gpu_kernel_3(double* u,
 		int n2, 
 		int n3, 
 		int amount_of_work){
-	int check=blockIdx.x*blockDim.x+threadIdx.x;
-	if(check>=amount_of_work){return;}
+	int i2=blockIdx.y*blockDim.y+threadIdx.y;
+	int i1=blockIdx.x*blockDim.x+threadIdx.x;
 
-	int i2=blockIdx.x;
-	int i1=threadIdx.x;
+	if(i1>=n1){return;}
 
-	while(i1<n1){
-		u[0*n2*n1+i2*n1+i1]=u[(n3-2)*n2*n1+i2*n1+i1];
-		u[(n3-1)*n2*n1+i2*n1+i1]=u[1*n2*n1+i2*n1+i1];
-		i1+=THREADS_PER_BLOCK_ON_COMM3;
-	}
+	u[0*n2*n1+i2*n1+i1]=u[(n3-2)*n2*n1+i2*n1+i1];
+	u[(n3-1)*n2*n1+i2*n1+i1]=u[1*n2*n1+i2*n1+i1];
 }
 
 /*
@@ -882,7 +857,6 @@ static void interp(void* pointer_z,
 	 */
 	double z1[M], z2[M], z3[M];
 
-	if(timeron){timer_start(T_INTERP);}
 	if(n1 != 3 && n2 != 3 && n3 != 3){
 		for(i3 = 0; i3 < mm3-1; i3++){
 			for(i2 = 0; i2 < mm2-1; i2++){
@@ -998,7 +972,6 @@ static void interp(void* pointer_z,
 			}
 		}
 	}
-	if(timeron){timer_stop(T_INTERP);}
 
 	if(debug_vec[0] >= 1){
 		rep_nrm(z,mm1,mm2,mm3,(char*)"z: inter",k-1);
@@ -1019,32 +992,48 @@ static void interp_gpu(double* z_device,
 		int n2, 
 		int n3, 
 		int k){
-	if(timeron){timer_start(T_INTERP);}
-	if(n1 != 3 && n2 != 3 && n3 != 3){
-		threads_per_block = mm1;
-		amount_of_work = (mm3-1) * (mm2-1) * mm1;	
-		blocks_per_grid = (ceil((double)(amount_of_work)/(double)(threads_per_block)));
+#if defined(PROFILING)
+	timer_start(PROFILING_INTERP);
+#endif
 
-		interp_gpu_kernel<<<blocks_per_grid, 
-			threads_per_block
-				//,SHARED_3_M
-				>>>(
-						z_device,
-						u_device,
-						mm1,
-						mm2,
-						mm3,
-						n1,
-						n2,
-						n3,
-						amount_of_work);
-		cudaDeviceSynchronize();
+	if(n1 != 3 && n2 != 3 && n3 != 3){
+		int amount_of_work_x=(mm2-1)*mm1;
+		int amount_of_work_y=mm3-1;
+		int threads_per_block_x;
+		int threads_per_block_y=1;
+		if(threads_per_block_on_interp != mm1){
+			threads_per_block_x = mm1;
+		}
+		else{
+			threads_per_block_x = threads_per_block_on_interp;
+		}
+		dim3 threadsPerBlock(threads_per_block_x,
+				threads_per_block_y,
+				1);
+		dim3 blocksPerGrid(ceil(double(amount_of_work_x)/double(threadsPerBlock.x)),
+				ceil(double(amount_of_work_y)/double(threadsPerBlock.y)),
+				1);
+		interp_gpu_kernel<<<blocksPerGrid, 
+			threadsPerBlock,
+			size_shared_data_on_interp>>>(
+					z_device,
+					u_device,
+					mm1,
+					mm2,
+					mm3,
+					n1,
+					n2,
+					n3,
+					amount_of_work_x);		
 	}
-	if(timeron){timer_stop(T_INTERP);}
+
+#if defined(PROFILING)
+	timer_stop(PROFILING_INTERP);
+#endif
 }
 
-__global__ void interp_gpu_kernel(double* base_z,
-		double* base_u,
+__global__ void interp_gpu_kernel(double* z_device,
+		double* u_device,
 		int mm1, 
 		int mm2, 
 		int mm3,
@@ -1053,38 +1042,31 @@ __global__ void interp_gpu_kernel(double* base_z,
 		int n3,
 		int amount_of_work){
 	int check=blockIdx.x*blockDim.x+threadIdx.x;
-	if(check>=amount_of_work){return;}	
+	if(check>=amount_of_work){return;}
 
-	int i3,i2,i1;
+	double* z1 = (double*)(extern_share_data);
+	double* z2 = (double*)(z1+M);
+	double* z3 = (double*)(z2+M);
 
-	__shared__ double z1[M],z2[M],z3[M];
-	//double* z1 = (double*)(extern_share_data);
-	//double* z2 = (double*)(&z1[M]);
-	//double* z3 = (double*)(&z2[M]);
+	int i3=blockIdx.y*blockDim.y+threadIdx.y;
+	int i2=blockIdx.x;
+	int i1=threadIdx.x;
 
-	double (*z)=base_z;
-	double (*u)=base_u;
-
-	i3=blockIdx.x/(mm2-1);
-	i2=blockIdx.x%(mm2-1);
-	i1=threadIdx.x;
-
-	z1[i1]=z[i3*mm2*mm1+(i2+1)*mm1+i1]+z[i3*mm2*mm1+i2*mm1+i1];
-	z2[i1]=z[(i3+1)*mm2*mm1+i2*mm1+i1]+z[i3*mm2*mm1+i2*mm1+i1];
-	z3[i1]=z[(i3+1)*mm2*mm1+(i2+1)*mm1+i1] 
-		+z[(i3+1)*mm2*mm1+i2*mm1+i1]+z1[i1];
+	z1[i1]=z_device[i3*mm2*mm1+(i2+1)*mm1+i1]+z_device[i3*mm2*mm1+i2*mm1+i1];
+	z2[i1]=z_device[(i3+1)*mm2*mm1+i2*mm1+i1]+z_device[i3*mm2*mm1+i2*mm1+i1];
+	z3[i1]=z_device[(i3+1)*mm2*mm1+(i2+1)*mm1+i1]+z_device[(i3+1)*mm2*mm1+i2*mm1+i1]+z1[i1];
 
 	__syncthreads();
 	if(i1<mm1-1){
-		double z321=z[i3*mm2*mm1+i2*mm1+i1];
-		u[2*i3*n2*n1+2*i2*n1+2*i1]+=z321;
-		u[2*i3*n2*n1+2*i2*n1+2*i1+1]+=0.5*(z[i3*mm2*mm1+i2*mm1+i1+1]+z321);
-		u[2*i3*n2*n1+(2*i2+1)*n1+2*i1]+=0.5*z1[i1];
-		u[2*i3*n2*n1+(2*i2+1)*n1+2*i1+1]+=0.25*(z1[i1]+z1[i1+1]);
-		u[(2*i3+1)*n2*n1+2*i2*n1+2*i1]+=0.5*z2[i1];
-		u[(2*i3+1)*n2*n1+2*i2*n1+2*i1+1]+=0.25*(z2[i1]+z2[i1+1]);
-		u[(2*i3+1)*n2*n1+(2*i2+1)*n1+2*i1]+=0.25*z3[i1];
-		u[(2*i3+1)*n2*n1+(2*i2+1)*n1+2*i1+1]+=0.125*(z3[i1]+z3[i1+1]);
+		double z321=z_device[i3*mm2*mm1+i2*mm1+i1];
+		u_device[2*i3*n2*n1+2*i2*n1+2*i1]+=z321;
+		u_device[2*i3*n2*n1+2*i2*n1+2*i1+1]+=0.5*(z_device[i3*mm2*mm1+i2*mm1+i1+1]+z321);
+		u_device[2*i3*n2*n1+(2*i2+1)*n1+2*i1]+=0.5*z1[i1];
+		u_device[2*i3*n2*n1+(2*i2+1)*n1+2*i1+1]+=0.25*(z1[i1]+z1[i1+1]);
+		u_device[(2*i3+1)*n2*n1+2*i2*n1+2*i1]+=0.5*z2[i1];
+		u_device[(2*i3+1)*n2*n1+2*i2*n1+2*i1+1]+=0.25*(z2[i1]+z2[i1+1]);
+		u_device[(2*i3+1)*n2*n1+(2*i2+1)*n1+2*i1]+=0.25*z3[i1];
+		u_device[(2*i3+1)*n2*n1+(2*i2+1)*n1+2*i1+1]+=0.125*(z3[i1]+z3[i1+1]);
 	}
 }
 
@@ -1232,7 +1214,6 @@ static void norm2u3(void* pointer_r,
 
 	double dn;
 
-	if(timeron){timer_start(T_NORM2);}
 	dn = 1.0*nx*ny*nz;
 
 	s = 0.0;
@@ -1248,7 +1229,6 @@ static void norm2u3(void* pointer_r,
 	}
 
 	*rnm2 = sqrt(s/dn);
-	if(timeron){timer_stop(T_NORM2);}
 }
 
 static void norm2u3_gpu(double* r_device, 
@@ -1260,60 +1240,69 @@ static void norm2u3_gpu(double* r_device,
 		int nx, 
 		int ny, 
 		int nz){
-	if(timeron){timer_start(T_NORM2);}
+#if defined(PROFILING)
+	timer_start(PROFILING_NORM2U3);
+#endif
 
-	double s;
-	double dn, max_rnmu;
-	int temp_size, j;
-
-	dn=1.0*nx*ny*nz;
-	s=0.0;
-	max_rnmu=0.0;
-
-	threads_per_block = THREADS_PER_BLOCK_ON_NORM2U3;
-	amount_of_work = (n2-2) * (n3-2) * threads_per_block;
-	blocks_per_grid = (ceil((double)(amount_of_work)/(double)(threads_per_block)));
-
-	temp_size = amount_of_work / threads_per_block;
-
-	double (*sum_host)=(double*)malloc(temp_size*sizeof(double));
-	double (*max_host)=(double*)malloc(temp_size*sizeof(double));
+	int temp_size;
+	double* data_host;
+	double* data_device;
+	double* sum_host;
 	double* sum_device;
-	double* max_device;
-	cudaMalloc(&sum_device,temp_size*sizeof(double));
-	cudaMalloc(&max_device,temp_size*sizeof(double));
+	double* max_host;
+	double* max_device;	
 
-	norm2u3_gpu_kernel<<<blocks_per_grid, 
-		threads_per_block
-			//,SHARED_2_NORM
-			>>>(
-					r_device,
-					n1,
-					n2,
-					n3,
-					sum_device,
-					max_device,
-					blocks_per_grid,
-					amount_of_work);
-	cudaDeviceSynchronize();
+	double dn=1.0*nx*ny*nz;
+	double s=0.0;
+	double max_rnmu=0.0;
 
-	cudaMemcpy(sum_host, sum_device, temp_size*sizeof(double), cudaMemcpyDeviceToHost);
-	cudaMemcpy(max_host, max_device, temp_size*sizeof(double), cudaMemcpyDeviceToHost);
+	int threads_per_block_x=threads_per_block_on_norm2u3;
+	int threads_per_block_y=1;
+	int amount_of_work_x=(n2-2)*threads_per_block_x;
+	int amount_of_work_y=n3-2;	
+	dim3 threadsPerBlock(threads_per_block_x,
+			threads_per_block_y,
+			1);
+	dim3 blocksPerGrid(ceil(double(amount_of_work_x)/double(threadsPerBlock.x)),
+			ceil(double(amount_of_work_y)/double(threadsPerBlock.y)),
+			1);
 
-	for(j=0; j<temp_size; j++){
+	temp_size=(amount_of_work_x*amount_of_work_y)/(threads_per_block_x*threads_per_block_y);	
+	cudaMalloc(&data_device,2*temp_size*sizeof(double));
+	sum_device=data_device;
+	max_device=data_device+temp_size;
+
+	norm2u3_gpu_kernel<<<blocksPerGrid, 
+		threadsPerBlock,
+		size_shared_data_on_norm2u3>>>(
+				r_device,
+				n1,
+				n2,
+				n3,
+				sum_device,
+				max_device,
+				blocksPerGrid.x,
+				amount_of_work_x);
+
+	data_host=(double*)malloc(2*temp_size*sizeof(double));
+	cudaMemcpy(data_host, data_device, 2*temp_size*sizeof(double), cudaMemcpyDeviceToHost);
+	sum_host=data_host;
+	max_host=(data_host+temp_size);
+
+	for(int j=0; j<temp_size; j++){
 		s=s+sum_host[j];
 		if(max_rnmu<max_host[j]){max_rnmu=max_host[j];}
 	}
 
-	cudaFree(sum_device);
-	cudaFree(max_device);
-	free(sum_host);
-	free(max_host);
+	cudaFree(data_device);
+	free(data_host);
 
 	*rnmu=max_rnmu;
 	*rnm2=sqrt(s/dn);
 
-	if(timeron){timer_stop(T_NORM2);}
+#if defined(PROFILING)
+	timer_stop(PROFILING_NORM2U3);
+#endif
 }
 
 __global__ void norm2u3_gpu_kernel(double* r,
@@ -1322,18 +1311,16 @@ __global__ void norm2u3_gpu_kernel(double* r,
 		const int n3,
 		double* res_sum,
 		double* res_max,
-		int number_of_blocks,
+		int number_of_blocks_on_x_axis,
 		int amount_of_work){
 	int check=blockIdx.x*blockDim.x+threadIdx.x;
 	if(check>=amount_of_work){return;}
 
-	__shared__ double scratch_sum[THREADS_PER_BLOCK_ON_NORM2U3];
-	__shared__ double scratch_max[THREADS_PER_BLOCK_ON_NORM2U3];
-	//double* scratch_sum = (double*)(extern_share_data);
-	//double* scratch_max = (double*)(&scratch_sum[THREADS_PER_BLOCK_ON_NORM2U3]);
+	double* scratch_sum = (double*)(extern_share_data);
+	double* scratch_max = (double*)(scratch_sum+blockDim.x);
 
-	int i3=blockIdx.x/(n2-2)+1;
-	int i2=blockIdx.x%(n2-2)+1;
+	int i3=blockIdx.y*blockDim.y+threadIdx.y+1;
+	int i2=blockIdx.x+1;
 	int i1=threadIdx.x+1;
 
 	double s=0.0;
@@ -1345,7 +1332,7 @@ __global__ void norm2u3_gpu_kernel(double* r,
 		s=s+r321*r321;
 		a=fabs(r321);
 		my_rnmu=(a>my_rnmu)?a:my_rnmu;
-		i1+=THREADS_PER_BLOCK_ON_NORM2U3;
+		i1+=blockDim.x;
 	}
 
 	int lid=threadIdx.x;
@@ -1353,7 +1340,7 @@ __global__ void norm2u3_gpu_kernel(double* r,
 	scratch_max[lid]=my_rnmu;
 
 	__syncthreads();
-	for(int i=THREADS_PER_BLOCK_ON_NORM2U3/2; i>0; i>>=1){
+	for(int i=blockDim.x/2; i>0; i>>=1){
 		if(lid<i){
 			scratch_sum[lid]+=scratch_sum[lid+i];
 			scratch_max[lid]=(scratch_max[lid]>scratch_max[lid+i])?scratch_max[lid]:scratch_max[lid+i];
@@ -1361,7 +1348,7 @@ __global__ void norm2u3_gpu_kernel(double* r,
 		__syncthreads();
 	}
 	if(lid == 0){
-		int idx=blockIdx.x;
+		int idx=blockIdx.y*number_of_blocks_on_x_axis+blockIdx.x;
 		res_sum[idx]=scratch_sum[0];
 		res_max[idx]=scratch_max[0];
 	}
@@ -1418,7 +1405,6 @@ static void psinv(void* pointer_r,
 	int i3, i2, i1;
 	double r1[M], r2[M];
 
-	if(timeron){timer_start(T_PSINV);}
 	for(i3 = 1; i3 < n3-1; i3++){
 		for(i2 = 1; i2 < n2-1; i2++){
 			for(i1 = 0; i1 < n1; i1++){
@@ -1443,7 +1429,6 @@ static void psinv(void* pointer_r,
 			}
 		}
 	}
-	if(timeron){timer_stop(T_PSINV);}
 
 	/*
 	 * --------------------------------------------------------------------
@@ -1468,24 +1453,36 @@ static void psinv_gpu(double* r_device,
 		int n3, 
 		double* c_device, 
 		int k){
-	threads_per_block = n1 > THREADS_PER_BLOCK ? THREADS_PER_BLOCK : n1;
-	amount_of_work = (n3-2) * (n2-2) * threads_per_block;
-	blocks_per_grid = (ceil((double)(amount_of_work)/(double)(threads_per_block)));
+#if defined(PROFILING)
+	timer_start(PROFILING_PSINV);
+#endif
 
-	if(timeron){timer_start(T_PSINV);}
-	psinv_gpu_kernel<<<blocks_per_grid, 
-		threads_per_block
-			//,SHARED_2_M
-			>>>(
-					r_device,
-					u_device,
-					c_device,
-					n1,
-					n2,
-					n3,
-					amount_of_work);
-	cudaDeviceSynchronize();
-	if(timeron){timer_stop(T_PSINV);}
+	int threads_per_block = n1 > threads_per_block_on_psinv ? threads_per_block_on_psinv : n1;
+	int amount_of_work_x=(n2-2)*threads_per_block;
+	int amount_of_work_y=n3-2;
+	int threads_per_block_x=threads_per_block;
+	int threads_per_block_y=1;
+	dim3 threadsPerBlock(threads_per_block_x,
+			threads_per_block_y,
+			1);
+	dim3 blocksPerGrid(ceil(double(amount_of_work_x) / double(threadsPerBlock.x)),
+			ceil(double(amount_of_work_y) / double(threadsPerBlock.y)),
+			1);
+
+	psinv_gpu_kernel<<<blocksPerGrid, 
+		threadsPerBlock,
+		size_shared_data_on_psinv>>>(
+				r_device,
+				u_device,
+				c_device,
+				n1,
+				n2,
+				n3,
+				amount_of_work_x);
+
+#if defined(PROFILING)
+	timer_stop(PROFILING_PSINV);
+#endif
 
 	/*
 	 * --------------------------------------------------------------------
@@ -1505,16 +1502,15 @@ __global__ void psinv_gpu_kernel(double* r,
 	int check=blockIdx.x*blockDim.x+threadIdx.x;
 	if(check>=amount_of_work){return;}
 
-	__shared__ double r1[M],r2[M];
-	//double* r1 = (double*)(extern_share_data);
-	//double* r2 = (double*)(&r1[M]);
+	double* r1 = (double*)(extern_share_data);
+	double* r2 = (double*)(r1+M);
 
-	int i3=blockIdx.x/(n2-2)+1;
-	int i2=blockIdx.x%(n2-2)+1;
+	int i3=blockIdx.y*blockDim.y+threadIdx.y+1;
+	int i2=blockIdx.x+1;
 	int lid=threadIdx.x;
 	int i1;	
 
-	for(i1=lid; i1<n1; i1+=THREADS_PER_BLOCK){
+	for(i1=lid; i1<n1; i1+=blockDim.x){
 		r1[i1]=r[i3*n2*n1+(i2-1)*n2+i1]
 			+r[i3*n2*n1+(i2+1)*n1+i1]
 			+r[(i3-1)*n2*n1+i2*n1+i1]
@@ -1524,7 +1520,7 @@ __global__ void psinv_gpu_kernel(double* r,
 			+r[(i3+1)*n2*n1+(i2-1)*n1+i1]
 			+r[(i3+1)*n2*n1+(i2+1)*n1+i1];
 	} __syncthreads();
-	for(i1=lid+1; i1<n1-1; i1+=THREADS_PER_BLOCK){
+	for(i1=lid+1; i1<n1-1; i1+=blockDim.x){
 		u[i3*n2*n1+i2*n1+i1]=u[i3*n2*n1+i2*n1+i1]
 			+c[0]*r[i3*n2*n1+i2*n1+i1]
 			+c[1]*(r[i3*n2*n1+i2*n1+i1-1]
@@ -1588,7 +1584,6 @@ static void resid(void* pointer_u,
 	int i3, i2, i1;
 	double u1[M], u2[M];
 
-	if(timeron){timer_start(T_RESID);}
 	for(i3 = 1; i3 < n3-1; i3++){
 		for(i2 = 1; i2 < n2-1; i2++){
 			for(i1 = 0; i1 < n1; i1++){
@@ -1613,7 +1608,6 @@ static void resid(void* pointer_u,
 			}
 		}
 	}
-	if(timeron){timer_stop(T_RESID);}
 
 	/*
 	 * --------------------------------------------------------------------
@@ -1639,25 +1633,37 @@ static void resid_gpu(double* u_device,
 		int n3,
 		double* a_device,
 		int k){
-	threads_per_block = n1 > THREADS_PER_BLOCK ? THREADS_PER_BLOCK : n1;
-	amount_of_work = (n3-2) * (n2-2) * threads_per_block;
-	blocks_per_grid = (ceil((double)(amount_of_work)/(double)(threads_per_block)));
+#if defined(PROFILING)
+	timer_start(PROFILING_RESID);
+#endif
 
-	if(timeron){timer_start(T_RESID);}
-	resid_gpu_kernel<<<blocks_per_grid, 
-		threads_per_block
-			//,SHARED_2_M
-			>>>(
-					u_device,
-					v_device,
-					r_device,
-					a_device,
-					n1,
-					n2,
-					n3,
-					amount_of_work);
-	cudaDeviceSynchronize();
-	if(timeron){timer_stop(T_RESID);}
+	int threads_per_block = n1 > threads_per_block_on_resid ? threads_per_block_on_resid : n1;
+	int amount_of_work_x=(n2-2)*threads_per_block;
+	int amount_of_work_y=n3-2;
+	int threads_per_block_x=threads_per_block;
+	int threads_per_block_y=1;
+	dim3 threadsPerBlock(threads_per_block_x,
+			threads_per_block_y,
+			1);
+	dim3 blocksPerGrid(ceil(double(amount_of_work_x) / double(threadsPerBlock.x)),
+			ceil(double(amount_of_work_y) / double(threadsPerBlock.y)),
+			1);
+
+	resid_gpu_kernel<<<blocksPerGrid, 
+		threadsPerBlock,
+		size_shared_data_on_resid>>>(
+				u_device,
+				v_device,
+				r_device,
+				a_device,
+				n1,
+				n2,
+				n3,
+				amount_of_work_x);
+
+#if defined(PROFILING)
+	timer_stop(PROFILING_RESID);
+#endif
 
 	/*
 	 * --------------------------------------------------------------------
@@ -1678,16 +1684,15 @@ __global__ void resid_gpu_kernel(double* u,
 	int check=blockIdx.x*blockDim.x+threadIdx.x;
 	if(check>=amount_of_work){return;}
 
-	__shared__ double u1[M], u2[M];
-	//double* u1 = (double*)(extern_share_data);
-	//double* u2 = (double*)(&u1[M]);
+	double* u1=(double*)(extern_share_data);
+	double* u2=(double*)(u1+M);
 
-	int i3=blockIdx.x/(n2-2)+1;
-	int i2=blockIdx.x%(n2-2)+1;
+	int i3=blockIdx.y*blockDim.y+threadIdx.y+1;
+	int i2=blockIdx.x+1;
 	int lid=threadIdx.x;
-	int i1;
+	int i1;	
 
-	for(i1=lid; i1<n1; i1+=THREADS_PER_BLOCK){
+	for(i1=lid; i1<n1; i1+=blockDim.x){
 		u1[i1]=u[i3*n2*n1+(i2-1)*n1+i1]
 			+u[i3*n2*n1+(i2+1)*n1+i1]
 			+u[(i3-1)*n2*n1+i2*n1+i1]
@@ -1697,7 +1702,7 @@ __global__ void resid_gpu_kernel(double* u,
 			+u[(i3+1)*n2*n1+(i2-1)*n1+i1]
 			+u[(i3+1)*n2*n1+(i2+1)*n1+i1];
 	} __syncthreads();
-	for(i1=lid+1; i1<n1-1; i1+=THREADS_PER_BLOCK){
+	for(i1=lid+1; i1<n1-1; i1+=blockDim.x){
 		r[i3*n2*n1+i2*n1+i1]=v[i3*n2*n1+i2*n1+i1]
 			-a[0]*u[i3*n2*n1+i2*n1+i1]
 			-a[2]*(u2[i1]+u1[i1-1]+u1[i1+1])
@@ -1732,7 +1737,6 @@ static void rprj3(void* pointer_r,
 
 	double x1[M], y1[M], x2, y2;
 
-	if(timeron){timer_start(T_RPRJ3);}
 	if(m1k == 3){
 		d1 = 2;
 	}else{
@@ -1773,7 +1777,6 @@ static void rprj3(void* pointer_r,
 			}
 		}
 	}
-	if(timeron){timer_stop(T_RPRJ3);}
 
 	j=k-1;
 	comm3(s,m1j,m2j,m3j,j);
@@ -1796,6 +1799,10 @@ static void rprj3_gpu(double* r_device,
 		int m2j, 
 		int m3j, 
 		int k){
+#if defined(PROFILING)
+	timer_start(PROFILING_RPRJ3);
+#endif
+
 	int d1,d2,d3,j;
 
 	if(m1k==3){
@@ -1814,36 +1821,49 @@ static void rprj3_gpu(double* r_device,
 		d3=1;
 	}
 
-	threads_per_block = m1j-1;
-	amount_of_work = (m3j-2) * (m2j-2) * (m1j-1);
-	blocks_per_grid = (ceil((double)(amount_of_work)/(double)(threads_per_block)));
+	int amount_of_work_x=(m2j-2)*(m1j-1);
+	int amount_of_work_y=m3j-2;
+	int threads_per_block_x;
+	int threads_per_block_y=1;
+	if(threads_per_block_on_rprj3 != m1j-1){
+		threads_per_block_x = m1j-1;
+	}
+	else{
+		threads_per_block_x = threads_per_block_on_interp;
+	}
+	dim3 threadsPerBlock(threads_per_block_x,
+			threads_per_block_y,
+			1);
+	dim3 blocksPerGrid(ceil(double(amount_of_work_x) / double(threadsPerBlock.x)),
+			ceil(double(amount_of_work_y) / double(threadsPerBlock.y)),
+			1);
 
-	if(timeron){timer_start(T_RPRJ3);}
-	rprj3_gpu_kernel<<<blocks_per_grid, 
-		threads_per_block
-			//,SHARED_2_M
-			>>>(
-					r_device,
-					s_device,
-					m1k,
-					m2k,
-					m3k,
-					m1j,
-					m2j,
-					m3j,
-					d1,
-					d2,
-					d3,
-					amount_of_work);
-	cudaDeviceSynchronize();
-	if(timeron){timer_stop(T_RPRJ3);}
+	rprj3_gpu_kernel<<<blocksPerGrid, 
+		threadsPerBlock,
+		size_shared_data_on_rprj3>>>(
+				r_device,
+				s_device,
+				m1k,
+				m2k,
+				m3k,
+				m1j,
+				m2j,
+				m3j,
+				d1,
+				d2,
+				d3,
+				amount_of_work_x);
+
+#if defined(PROFILING)
+	timer_stop(PROFILING_RPRJ3);
+#endif
 
 	j=k-1;
 	comm3_gpu(s_device,m1j,m2j,m3j,j);
 }
 
-__global__ void rprj3_gpu_kernel(double* base_r,
-		double* base_s,
+__global__ void rprj3_gpu_kernel(double* r_device,
+		double* s_device,
 		int m1k,
 		int m2k,
 		int m3k,
@@ -1860,43 +1880,39 @@ __global__ void rprj3_gpu_kernel(double* base_r,
 	int j3,j2,j1,i3,i2,i1;
 	double x2,y2;
 
-	__shared__ double x1[M],y1[M];
-	//double* x1 = (double*)(extern_share_data);
-	//double* y1 = (double*)(&x1[M]);
+	double* x1 = (double*)(extern_share_data);
+	double* y1 = (double*)(x1+M);
 
-	double (*r)=base_r;
-	double (*s)=base_s;
-
-	j3=blockIdx.x/(m2j-2)+1;
-	j2=blockIdx.x%(m2j-2)+1;
+	j3=blockIdx.y*blockDim.y+threadIdx.y+1;
+	j2=blockIdx.x+1;
 	j1=threadIdx.x+1;
 
 	i3=2*j3-d3;
 	i2=2*j2-d2;
 	i1=2*j1-d1;
-	x1[i1]=r[(i3+1)*m2k*m1k+i2*m1k+i1]
-		+r[(i3+1)*m2k*m1k+(i2+2)*m1k+i1]
-		+r[i3*m2k*m1k+(i2+1)*m1k+i1]
-		+r[(i3+2)*m2k*m1k+(i2+1)*m1k+i1];
-	y1[i1]=r[i3*m2k*m1k+i2*m1k+i1]
-		+r[(i3+2)*m2k*m1k+i2*m1k+i1]
-		+r[i3*m2k*m1k+(i2+2)*m1k+i1]
-		+r[(i3+2)*m2k*m1k+(i2+2)*m1k+i1];		
+	x1[i1]=r_device[(i3+1)*m2k*m1k+i2*m1k+i1]
+		+r_device[(i3+1)*m2k*m1k+(i2+2)*m1k+i1]
+		+r_device[i3*m2k*m1k+(i2+1)*m1k+i1]
+		+r_device[(i3+2)*m2k*m1k+(i2+1)*m1k+i1];
+	y1[i1]=r_device[i3*m2k*m1k+i2*m1k+i1]
+		+r_device[(i3+2)*m2k*m1k+i2*m1k+i1]
+		+r_device[i3*m2k*m1k+(i2+2)*m1k+i1]
+		+r_device[(i3+2)*m2k*m1k+(i2+2)*m1k+i1];		
 	__syncthreads();
 	if(j1<m1j-1){
 		i1=2*j1-d1;
-		y2=r[i3*m2k*m1k+i2*m1k+i1+1]
-			+r[(i3+2)*m2k*m1k+i2*m1k+i1+1]
-			+r[i3*m2k*m1k+(i2+2)*m1k+i1+1]
-			+r[(i3+2)*m2k*m1k+(i2+2)*m1k+i1+1];
-		x2=r[(i3+1)*m2k*m1k+i2*m1k+i1+1]
-			+r[(i3+1)*m2k*m1k+(i2+2)*m1k+i1+1]
-			+r[i3*m2k*m1k+(i2+1)*m1k+i1+1]
-			+r[(i3+2)*m2k*m1k+(i2+1)*m1k+i1+1];
-		s[j3*m2j*m1j+j2*m1j+j1]=
-			0.5*r[(i3+1)*m2k*m1k+(i2+1)*m1k+i1+1]
-			+0.25*(r[(i3+1)*m2k*m1k+(i2+1)*m1k+i1]
-					+r[(i3+1)*m2k*m1k+(i2+1)*m1k+i1+2]+x2)
+		y2=r_device[i3*m2k*m1k+i2*m1k+i1+1]
+			+r_device[(i3+2)*m2k*m1k+i2*m1k+i1+1]
+			+r_device[i3*m2k*m1k+(i2+2)*m1k+i1+1]
+			+r_device[(i3+2)*m2k*m1k+(i2+2)*m1k+i1+1];
+		x2=r_device[(i3+1)*m2k*m1k+i2*m1k+i1+1]
+			+r_device[(i3+1)*m2k*m1k+(i2+2)*m1k+i1+1]
+			+r_device[i3*m2k*m1k+(i2+1)*m1k+i1+1]
+			+r_device[(i3+2)*m2k*m1k+(i2+1)*m1k+i1+1];
+		s_device[j3*m2j*m1j+j2*m1j+j1]=
+			0.5*r_device[(i3+1)*m2k*m1k+(i2+1)*m1k+i1+1]
+			+0.25*(r_device[(i3+1)*m2k*m1k+(i2+1)*m1k+i1]
+					+r_device[(i3+1)*m2k*m1k+(i2+1)*m1k+i1+2]+x2)
 			+0.125*(x1[i1]+x1[i1+2]+y2)
 			+0.0625*(y1[i1]+y1[i1+2]);
 	}
@@ -1961,11 +1977,106 @@ static void setup(int* n1,
 
 static void setup_gpu(double* a, 
 		double* c){
+	/*
+	 * struct cudaDeviceProp{
+	 *  char name[256];
+	 *  size_t totalGlobalMem;
+	 *  size_t sharedMemPerBlock;
+	 *  int regsPerBlock;
+	 *  int warpSize;
+	 *  size_t memPitch;
+	 *  int maxThreadsPerBlock;
+	 *  int maxThreadsDim[3];
+	 *  int maxGridSize[3];
+	 *  size_t totalConstMem;
+	 *  int major;
+	 *  int minor;
+	 *  int clockRate;
+	 *  size_t textureAlignment;
+	 *  int deviceOverlap;
+	 *  int multiProcessorCount;
+	 *  int kernelExecTimeoutEnabled;
+	 *  int integrated;
+	 *  int canMapHostMemory;
+	 *  int computeMode;
+	 *  int concurrentKernels;
+	 *  int ECCEnabled;
+	 *  int pciBusID;
+	 *  int pciDeviceID;
+	 *  int tccDriver;
+	 * }
+	 */
+	/* define gpu_device */
+	cudaGetDeviceCount(&total_devices);
+	if(total_devices==0){
+		printf("\n\n\n No Nvidia GPU found!!! \n\n\n");
+		exit(-1);
+	}else if((GPU_DEVICE>=0)&&
+			(GPU_DEVICE<total_devices)){
+		gpu_device_id = GPU_DEVICE;
+	}else{
+		gpu_device_id = 0;
+	}
+	cudaSetDevice(gpu_device_id);	
+	cudaGetDeviceProperties(&gpu_device_properties, gpu_device_id);
+
+	/* define threads_per_block */
+	if((MG_THREADS_PER_BLOCK_ON_COMM3>=1)&&
+			(MG_THREADS_PER_BLOCK_ON_COMM3<=gpu_device_properties.maxThreadsPerBlock)){
+		threads_per_block_on_comm3 = MG_THREADS_PER_BLOCK_ON_COMM3;
+	}else{
+		threads_per_block_on_comm3 = gpu_device_properties.warpSize;
+	}	
+
+	if((MG_THREADS_PER_BLOCK_ON_INTERP>=1)&&
+			(MG_THREADS_PER_BLOCK_ON_INTERP<=gpu_device_properties.maxThreadsPerBlock)){
+		threads_per_block_on_interp = MG_THREADS_PER_BLOCK_ON_INTERP;
+	}else{
+		threads_per_block_on_interp = gpu_device_properties.warpSize;
+	}	
+
+	if((MG_THREADS_PER_BLOCK_ON_NORM2U3>=1)&&
+			(MG_THREADS_PER_BLOCK_ON_NORM2U3<=gpu_device_properties.maxThreadsPerBlock)){
+		threads_per_block_on_norm2u3 = MG_THREADS_PER_BLOCK_ON_NORM2U3;
+	}else{
+		threads_per_block_on_norm2u3 = gpu_device_properties.warpSize;
+	}
+	if((MG_THREADS_PER_BLOCK_ON_PSINV>=1)&&
+			(MG_THREADS_PER_BLOCK_ON_PSINV<=gpu_device_properties.maxThreadsPerBlock)){
+		threads_per_block_on_psinv = MG_THREADS_PER_BLOCK_ON_PSINV;
+	}else{
+		threads_per_block_on_psinv = gpu_device_properties.warpSize;
+	}	
+	if((MG_THREADS_PER_BLOCK_ON_RESID>=1)&&
+			(MG_THREADS_PER_BLOCK_ON_RESID<=gpu_device_properties.maxThreadsPerBlock)){
+		threads_per_block_on_resid = MG_THREADS_PER_BLOCK_ON_RESID;
+	}else{
+		threads_per_block_on_resid = gpu_device_properties.warpSize;
+	}
+	if((MG_THREADS_PER_BLOCK_ON_RPRJ3>=1)&&
+			(MG_THREADS_PER_BLOCK_ON_RPRJ3<=gpu_device_properties.maxThreadsPerBlock)){
+		threads_per_block_on_rprj3 = MG_THREADS_PER_BLOCK_ON_RPRJ3;
+	}else{
+		threads_per_block_on_rprj3 = gpu_device_properties.warpSize;
+	}
+	if((MG_THREADS_PER_BLOCK_ON_ZERO3>=1)&&
+			(MG_THREADS_PER_BLOCK_ON_ZERO3<=gpu_device_properties.maxThreadsPerBlock)){
+		threads_per_block_on_zero3 = MG_THREADS_PER_BLOCK_ON_ZERO3;
+	}else{
+		threads_per_block_on_zero3 = gpu_device_properties.warpSize;
+	}	
+
 	size_a_device=sizeof(double)*(4);
 	size_c_device=sizeof(double)*(4);
 	size_u_device=sizeof(double)*(NR);
 	size_v_device=sizeof(double)*(NV);
 	size_r_device=sizeof(double)*(NR);
+	size_shared_data_on_interp=3*M*sizeof(double);
+	size_shared_data_on_norm2u3=2*threads_per_block_on_norm2u3*sizeof(double);
+	size_shared_data_on_psinv=2*M*sizeof(double);
+	size_shared_data_on_resid=2*M*sizeof(double);
+	size_shared_data_on_rprj3=2*M*sizeof(double);
+
 	cudaMalloc(&a_device, size_a_device);
 	cudaMalloc(&c_device, size_c_device);
 	cudaMalloc(&u_device, size_u_device);
@@ -2024,15 +2135,23 @@ static void zero3_gpu(double* z_device,
 		int n1, 
 		int n2, 
 		int n3){
-	threads_per_block = THREADS_PER_BLOCK_ON_ZERO3;
-	amount_of_work = n1*n2*n3;	
-	blocks_per_grid = (ceil((double)(amount_of_work)/(double)(threads_per_block)));
+#if defined(PROFILING)
+	timer_start(PROFILING_ZERO3);
+#endif
+
+	int threads_per_block = threads_per_block_on_zero3;
+	int amount_of_work = n1*n2*n3;	
+	int blocks_per_grid = (ceil((double)(amount_of_work)/(double)(threads_per_block)));
 
 	zero3_gpu_kernel<<<blocks_per_grid, threads_per_block>>>(z_device,
 			n1,
 			n2,
 			n3,
 			amount_of_work);
+
+#if defined(PROFILING)
+	timer_stop(PROFILING_ZERO3);
+#endif
 }
 
 __global__ void zero3_gpu_kernel(double* z, 

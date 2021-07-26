@@ -130,22 +130,27 @@
 #define	PI (3.141592653589793238)
 #define	ALPHA (1.0e-6)
 #define AP (-4.0*ALPHA*PI*PI)
-#define	T_TOTAL (1)
-#define	T_SETUP (2)
-#define	T_FFT (3)
-#define	T_EVOLVE (4)
-#define	T_CHECKSUM (5)
-#define	T_FFTX (6)
-#define	T_FFTY (7)
-#define	T_FFTZ (8)
-#define T_MAX (8)
-#define CHECKSUM_TASKS (1024)
-#define THREADS_PER_BLOCK_AT_CHECKSUM (128)
-#define DEFAULT_GPU (0)
 #define OMP_THREADS (3)
-#define COMPUTE_INDEXMAP (0)
-#define COMPUTE_INITIAL_CONDITIONS (1)
-#define COMPUTE_FFT_INIT (2)
+#define TASK_INDEXMAP (0)
+#define TASK_INITIAL_CONDITIONS (1)
+#define TASK_INIT_UI (2)
+#define PROFILING_TOTAL_TIME (0)
+#define PROFILING_INDEXMAP (1)
+#define PROFILING_INITIAL_CONDITIONS (2)
+#define PROFILING_INIT_UI (3)
+#define PROFILING_EVOLVE (4)
+#define PROFILING_FFTX_1 (5)
+#define PROFILING_FFTX_2 (6)
+#define PROFILING_FFTX_3 (7)
+#define PROFILING_FFTY_1 (8)
+#define PROFILING_FFTY_2 (9)
+#define PROFILING_FFTY_3 (10)
+#define PROFILING_FFTZ_1 (11)
+#define PROFILING_FFTZ_2 (12)
+#define PROFILING_FFTZ_3 (13)
+#define PROFILING_CHECKSUM (14)
+#define PROFILING_INIT (15)
+#define CHECKSUM_TASKS (1024)
 
 /* global variables */
 #if defined(DO_NOT_ALLOCATE_ARRAYS_WITH_DYNAMIC_MEMORY_AND_AS_SINGLE_DIMENSION)
@@ -164,18 +169,10 @@ static dcomplex (*u1)=(dcomplex*)malloc(sizeof(dcomplex)*(NTOTAL));
 static int (*dims)=(int*)malloc(sizeof(int)*(3));
 #endif
 static int niter;
-static boolean timers_enabled;
 /* gpu variables */
-int THREADS_PER_BLOCK_AT_COMPUTE_INDEXMAP;
-int THREADS_PER_BLOCK_AT_COMPUTE_INITIAL_CONDITIONS;
-int THREADS_PER_BLOCK_AT_INIT_UI;
-int THREADS_PER_BLOCK_AT_EVOLVE;
-int THREADS_PER_BLOCK_AT_FFT1;
-int THREADS_PER_BLOCK_AT_FFT2;
-int THREADS_PER_BLOCK_AT_FFT3;
-dcomplex* sums_device;
 double* starts_device;
 double* twiddle_device;
+dcomplex* sums_device;
 dcomplex* u_device;
 dcomplex* u0_device;
 dcomplex* u1_device;
@@ -190,6 +187,39 @@ size_t size_u0_device;
 size_t size_u1_device;
 size_t size_y0_device;
 size_t size_y1_device;
+size_t size_shared_data;
+int blocks_per_grid_on_compute_indexmap;
+int blocks_per_grid_on_compute_initial_conditions;
+int blocks_per_grid_on_init_ui;
+int blocks_per_grid_on_evolve;
+int blocks_per_grid_on_fftx_1;
+int blocks_per_grid_on_fftx_2;
+int blocks_per_grid_on_fftx_3;
+int blocks_per_grid_on_ffty_1;
+int blocks_per_grid_on_ffty_2;
+int blocks_per_grid_on_ffty_3;
+int blocks_per_grid_on_fftz_1;
+int blocks_per_grid_on_fftz_2;
+int blocks_per_grid_on_fftz_3;
+int blocks_per_grid_on_checksum;
+int threads_per_block_on_compute_indexmap;
+int threads_per_block_on_compute_initial_conditions;
+int threads_per_block_on_init_ui;
+int threads_per_block_on_evolve;
+int threads_per_block_on_fftx_1;
+int threads_per_block_on_fftx_2;
+int threads_per_block_on_fftx_3;
+int threads_per_block_on_ffty_1;
+int threads_per_block_on_ffty_2;
+int threads_per_block_on_ffty_3;
+int threads_per_block_on_fftz_1;
+int threads_per_block_on_fftz_2;
+int threads_per_block_on_fftz_3;
+int threads_per_block_on_checksum;
+int gpu_device_id;
+int total_devices;
+cudaDeviceProp gpu_device_properties;
+extern __shared__ double extern_share_data[];
 
 /* function declarations */
 static void cffts1_gpu(const int is, 
@@ -285,7 +315,6 @@ static void ipow46(double a,
 __device__ void ipow46_device(double a, 
 		int exponent, 
 		double* result);
-static void print_timers();
 __device__ double randlc_device(double* x, 
 		double a);
 static void release_gpu();
@@ -307,7 +336,9 @@ int main(int argc, char** argv){
 #if defined(DO_NOT_ALLOCATE_ARRAYS_WITH_DYNAMIC_MEMORY_AND_AS_SINGLE_DIMENSION)
 	printf(" DO_NOT_ALLOCATE_ARRAYS_WITH_DYNAMIC_MEMORY_AND_AS_SINGLE_DIMENSION mode on\n");
 #endif
-	int i;
+#if defined(PROFILING)
+	printf(" PROFILING mode on\n");
+#endif
 	int iter=0;
 	double total_time, mflops;
 	boolean verified;
@@ -319,20 +350,17 @@ int main(int argc, char** argv){
 	 * this reduces variable startup costs, which is important for such a 
 	 * short benchmark. the other NPB 2 implementations are similar. 
 	 * ---------------------------------------------------------------------
-	 */
-	for(i=0; i<T_MAX; i++){
-		timer_clear(i);
-	}
+	 */	
 	setup();
 	setup_gpu();
 	init_ui_gpu(u0_device, u1_device, twiddle_device);
-	#pragma omp parallel
+#pragma omp parallel
 	{
-		if(omp_get_thread_num()==COMPUTE_INDEXMAP){
+		if(omp_get_thread_num()==TASK_INDEXMAP){
 			compute_indexmap_gpu(twiddle_device);
-		}else if(omp_get_thread_num()==COMPUTE_INITIAL_CONDITIONS){
+		}else if(omp_get_thread_num()==TASK_INITIAL_CONDITIONS){
 			compute_initial_conditions_gpu(u1_device);
-		}else if(omp_get_thread_num()==COMPUTE_FFT_INIT){
+		}else if(omp_get_thread_num()==TASK_INIT_UI){
 			fft_init_gpu(MAXDIM);
 		}		
 	}cudaDeviceSynchronize();
@@ -344,36 +372,40 @@ int main(int argc, char** argv){
 	 * be timed, in contrast to other benchmarks. 
 	 * ---------------------------------------------------------------------
 	 */
-	for(i=0; i<T_MAX; i++){
-		timer_clear(i);
-	}
+	timer_clear(PROFILING_TOTAL_TIME);
+#if defined(PROFILING)
+	timer_clear(PROFILING_INDEXMAP);
+	timer_clear(PROFILING_INITIAL_CONDITIONS);
+	timer_clear(PROFILING_INITIAL_CONDITIONS);
+	timer_clear(PROFILING_EVOLVE);
+	timer_clear(PROFILING_FFTX_1);
+	timer_clear(PROFILING_FFTX_2);
+	timer_clear(PROFILING_FFTX_3);
+	timer_clear(PROFILING_FFTY_1);
+	timer_clear(PROFILING_FFTY_2);
+	timer_clear(PROFILING_FFTY_3);
+	timer_clear(PROFILING_FFTZ_1);
+	timer_clear(PROFILING_FFTZ_2);
+	timer_clear(PROFILING_FFTZ_3);
+	timer_clear(PROFILING_CHECKSUM);
+#endif
 
-	timer_start(T_TOTAL);
-	if(timers_enabled==TRUE){timer_start(T_SETUP);}
-	#pragma omp parallel
+	timer_start(PROFILING_TOTAL_TIME);
+#pragma omp parallel
 	{
-		if(omp_get_thread_num()==COMPUTE_INDEXMAP){
+		if(omp_get_thread_num()==TASK_INDEXMAP){
 			compute_indexmap_gpu(twiddle_device);
-		}else if(omp_get_thread_num()==COMPUTE_INITIAL_CONDITIONS){
+		}else if(omp_get_thread_num()==TASK_INITIAL_CONDITIONS){
 			compute_initial_conditions_gpu(u1_device);
-		}else if(omp_get_thread_num()==COMPUTE_FFT_INIT){
+		}else if(omp_get_thread_num()==TASK_INIT_UI){
 			fft_init_gpu(MAXDIM);
 		}		
 	}cudaDeviceSynchronize();
-	if(timers_enabled==TRUE){timer_stop(T_SETUP);}
-	if(timers_enabled==TRUE){timer_start(T_FFT);}
 	fft_gpu(1, u1_device, u0_device);
-	if(timers_enabled==TRUE){timer_stop(T_FFT);}
 	for(iter=1; iter<=niter; iter++){
-		if(timers_enabled==TRUE){timer_start(T_EVOLVE);}
 		evolve_gpu(u0_device, u1_device, twiddle_device);
-		if(timers_enabled==TRUE){timer_stop(T_EVOLVE);}
-		if(timers_enabled==TRUE){timer_start(T_FFT);}
 		fft_gpu(-1, u1_device, u1_device);
-		if(timers_enabled==TRUE){timer_stop(T_FFT);}
-		if(timers_enabled==TRUE){timer_start(T_CHECKSUM);}
 		checksum_gpu(iter, u1_device);
-		if(timers_enabled==TRUE){timer_stop(T_CHECKSUM);}
 	}
 
 	cudaMemcpy(sums, sums_device, size_sums_device, cudaMemcpyDeviceToHost);
@@ -383,8 +415,8 @@ int main(int argc, char** argv){
 
 	verify(NX, NY, NZ, niter, &verified, &class_npb);
 
-	timer_stop(T_TOTAL);
-	total_time = timer_read(T_TOTAL);		
+	timer_stop(PROFILING_TOTAL_TIME);
+	total_time = timer_read(PROFILING_TOTAL_TIME);		
 
 	if(total_time != 0.0){
 		mflops = 1.0e-6 * ((double)(NTOTAL)) *
@@ -394,6 +426,73 @@ int main(int argc, char** argv){
 	}else{
 		mflops = 0.0;
 	}
+
+	char gpu_config[256];
+	char gpu_config_string[2048];
+#if defined(PROFILING)
+	sprintf(gpu_config, "%5s\t%25s\t%25s\t%25s\n", "GPU Kernel", "Threads Per Block", "Time in Seconds", "Time in Percentage");
+	strcpy(gpu_config_string, gpu_config);
+	sprintf(gpu_config, "%29s\t%25d\t%25f\t%24.2f%%\n", " indexmap", threads_per_block_on_compute_indexmap, timer_read(PROFILING_INDEXMAP), (timer_read(PROFILING_INDEXMAP)*100/timer_read(PROFILING_TOTAL_TIME)));
+	strcat(gpu_config_string, gpu_config);
+	sprintf(gpu_config, "%29s\t%25d\t%25f\t%24.2f%%\n", " initial conditions", threads_per_block_on_compute_initial_conditions, timer_read(PROFILING_INITIAL_CONDITIONS), (timer_read(PROFILING_INITIAL_CONDITIONS)*100/timer_read(PROFILING_TOTAL_TIME)));
+	strcat(gpu_config_string, gpu_config);
+	sprintf(gpu_config, "%29s\t%25d\t%25f\t%24.2f%%\n", " init ui", threads_per_block_on_init_ui, timer_read(PROFILING_INIT_UI), (timer_read(PROFILING_INIT_UI)*100/timer_read(PROFILING_TOTAL_TIME)));
+	strcat(gpu_config_string, gpu_config);
+	sprintf(gpu_config, "%29s\t%25d\t%25f\t%24.2f%%\n", " evolve", threads_per_block_on_evolve, timer_read(PROFILING_EVOLVE), (timer_read(PROFILING_EVOLVE)*100/timer_read(PROFILING_TOTAL_TIME)));
+	strcat(gpu_config_string, gpu_config);
+	sprintf(gpu_config, "%29s\t%25d\t%25f\t%24.2f%%\n", " fftx 1", threads_per_block_on_fftx_1, timer_read(PROFILING_FFTX_1), (timer_read(PROFILING_FFTX_1)*100/timer_read(PROFILING_TOTAL_TIME)));
+	strcat(gpu_config_string, gpu_config);
+	sprintf(gpu_config, "%29s\t%25d\t%25f\t%24.2f%%\n", " fftx 2", threads_per_block_on_fftx_2, timer_read(PROFILING_FFTX_2), (timer_read(PROFILING_FFTX_2)*100/timer_read(PROFILING_TOTAL_TIME)));
+	strcat(gpu_config_string, gpu_config);
+	sprintf(gpu_config, "%29s\t%25d\t%25f\t%24.2f%%\n", " fftx 3", threads_per_block_on_fftx_3, timer_read(PROFILING_FFTX_3), (timer_read(PROFILING_FFTX_3)*100/timer_read(PROFILING_TOTAL_TIME)));
+	strcat(gpu_config_string, gpu_config);
+	sprintf(gpu_config, "%29s\t%25d\t%25f\t%24.2f%%\n", " ffty 1", threads_per_block_on_ffty_1, timer_read(PROFILING_FFTY_1), (timer_read(PROFILING_FFTY_1)*100/timer_read(PROFILING_TOTAL_TIME)));
+	strcat(gpu_config_string, gpu_config);
+	sprintf(gpu_config, "%29s\t%25d\t%25f\t%24.2f%%\n", " ffty 2", threads_per_block_on_ffty_2, timer_read(PROFILING_FFTY_2), (timer_read(PROFILING_FFTY_2)*100/timer_read(PROFILING_TOTAL_TIME)));
+	strcat(gpu_config_string, gpu_config);
+	sprintf(gpu_config, "%29s\t%25d\t%25f\t%24.2f%%\n", " ffty 3", threads_per_block_on_ffty_3, timer_read(PROFILING_FFTY_3), (timer_read(PROFILING_FFTY_3)*100/timer_read(PROFILING_TOTAL_TIME)));
+	strcat(gpu_config_string, gpu_config);
+	sprintf(gpu_config, "%29s\t%25d\t%25f\t%24.2f%%\n", " fftz 1", threads_per_block_on_fftz_1, timer_read(PROFILING_FFTZ_1), (timer_read(PROFILING_FFTZ_1)*100/timer_read(PROFILING_TOTAL_TIME)));
+	strcat(gpu_config_string, gpu_config);
+	sprintf(gpu_config, "%29s\t%25d\t%25f\t%24.2f%%\n", " fftz 2", threads_per_block_on_fftz_2, timer_read(PROFILING_FFTZ_2), (timer_read(PROFILING_FFTZ_2)*100/timer_read(PROFILING_TOTAL_TIME)));
+	strcat(gpu_config_string, gpu_config);
+	sprintf(gpu_config, "%29s\t%25d\t%25f\t%24.2f%%\n", " fftz 3", threads_per_block_on_fftz_3, timer_read(PROFILING_FFTZ_3), (timer_read(PROFILING_FFTZ_3)*100/timer_read(PROFILING_TOTAL_TIME)));
+	strcat(gpu_config_string, gpu_config);
+	sprintf(gpu_config, "%29s\t%25d\t%25f\t%24.2f%%\n", " checksum", threads_per_block_on_checksum, timer_read(PROFILING_CHECKSUM), (timer_read(PROFILING_CHECKSUM)*100/timer_read(PROFILING_TOTAL_TIME)));
+	strcat(gpu_config_string, gpu_config);
+#else
+	sprintf(gpu_config, "%5s\t%25s\n", "GPU Kernel", "Threads Per Block");
+	strcpy(gpu_config_string, gpu_config);
+	sprintf(gpu_config, "%29s\t%25d\n", " indexmap", threads_per_block_on_compute_indexmap);
+	strcat(gpu_config_string, gpu_config);
+	sprintf(gpu_config, "%29s\t%25d\n", " initial conditions", threads_per_block_on_compute_initial_conditions);
+	strcat(gpu_config_string, gpu_config);
+	sprintf(gpu_config, "%29s\t%25d\n", " init ui", threads_per_block_on_init_ui);
+	strcat(gpu_config_string, gpu_config);
+	sprintf(gpu_config, "%29s\t%25d\n", " evolve", threads_per_block_on_evolve);
+	strcat(gpu_config_string, gpu_config);
+	sprintf(gpu_config, "%29s\t%25d\n", " fftx 1", threads_per_block_on_fftx_1);
+	strcat(gpu_config_string, gpu_config);
+	sprintf(gpu_config, "%29s\t%25d\n", " fftx 2", threads_per_block_on_fftx_2);
+	strcat(gpu_config_string, gpu_config);
+	sprintf(gpu_config, "%29s\t%25d\n", " fftx 3", threads_per_block_on_fftx_3);
+	strcat(gpu_config_string, gpu_config);
+	sprintf(gpu_config, "%29s\t%25d\n", " ffty 1", threads_per_block_on_ffty_1);
+	strcat(gpu_config_string, gpu_config);
+	sprintf(gpu_config, "%29s\t%25d\n", " ffty 2", threads_per_block_on_ffty_2);
+	strcat(gpu_config_string, gpu_config);
+	sprintf(gpu_config, "%29s\t%25d\n", " ffty 3", threads_per_block_on_ffty_3);
+	strcat(gpu_config_string, gpu_config);
+	sprintf(gpu_config, "%29s\t%25d\n", " fftz 1", threads_per_block_on_fftz_1);
+	strcat(gpu_config_string, gpu_config);
+	sprintf(gpu_config, "%29s\t%25d\n", " fftz 2", threads_per_block_on_fftz_2);
+	strcat(gpu_config_string, gpu_config);
+	sprintf(gpu_config, "%29s\t%25d\n", " fftz 3", threads_per_block_on_fftz_3);
+	strcat(gpu_config_string, gpu_config);
+	sprintf(gpu_config, "%29s\t%25d\n", " checksum", threads_per_block_on_checksum);
+	strcat(gpu_config_string, gpu_config);
+#endif
+
 	c_print_results((char*)"FT", 
 			class_npb, 
 			NX, 
@@ -405,15 +504,19 @@ int main(int argc, char** argv){
 			(char*)"          floating point", 
 			verified, 
 			(char*)NPBVERSION, 
-			(char*)COMPILETIME, 
+			(char*)COMPILETIME,
+			(char*)COMPILERVERSION,
+			(char*)LIBVERSION,
+			(char*)CPU_MODEL,
+			(char*)gpu_device_properties.name,
+			(char*)gpu_config_string,
 			(char*)CS1, 
 			(char*)CS2, 
 			(char*)CS3, 
 			(char*)CS4, 
 			(char*)CS5, 
 			(char*)CS6, 
-			(char*)CS7);
-	if(timers_enabled==TRUE){print_timers();}
+			(char*)CS7);	
 
 	release_gpu();
 
@@ -426,25 +529,40 @@ static void cffts1_gpu(const int is,
 		dcomplex x_out[], 
 		dcomplex y0[], 
 		dcomplex y1[]){
-	if(timers_enabled){timer_start(T_FFTX);}
-
-	int blocks_per_grid_kernel_1=ceil(double(NX*NY*NZ)/double(THREADS_PER_BLOCK_AT_FFT1));
-	int blocks_per_grid_kernel_2=ceil(double(NY*NZ)/double(THREADS_PER_BLOCK_AT_FFT1));
-	int blocks_per_grid_kernel_3=ceil(double(NX*NY*NZ)/double(THREADS_PER_BLOCK_AT_FFT1));
-
-	cffts1_gpu_kernel_1<<<blocks_per_grid_kernel_1, THREADS_PER_BLOCK_AT_FFT1>>>(x_in, 
-			y0);
+#if defined(PROFILING)
+	timer_start(PROFILING_FFTX_1);
+#endif
+	cffts1_gpu_kernel_1<<<blocks_per_grid_on_fftx_1,
+		threads_per_block_on_fftx_1>>>(x_in, 
+				y0);
 	cudaDeviceSynchronize();
-	cffts1_gpu_kernel_2<<<blocks_per_grid_kernel_2, THREADS_PER_BLOCK_AT_FFT1>>>(is, 
-			y0, 
-			y1, 
-			u);
-	cudaDeviceSynchronize();
-	cffts1_gpu_kernel_3<<<blocks_per_grid_kernel_3, THREADS_PER_BLOCK_AT_FFT1>>>(x_out, 
-			y0);
-	cudaDeviceSynchronize();
+#if defined(PROFILING)
+	timer_stop(PROFILING_FFTX_1);
+#endif
 
-	if(timers_enabled){timer_stop(T_FFTX);}
+#if defined(PROFILING)
+	timer_start(PROFILING_FFTX_2);
+#endif
+	cffts1_gpu_kernel_2<<<blocks_per_grid_on_fftx_2,
+		threads_per_block_on_fftx_2>>>(is, 
+				y0, 
+				y1, 
+				u);
+	cudaDeviceSynchronize();
+#if defined(PROFILING)
+	timer_stop(PROFILING_FFTX_2);
+#endif
+
+#if defined(PROFILING)
+	timer_start(PROFILING_FFTX_3);
+#endif
+	cffts1_gpu_kernel_3<<<blocks_per_grid_on_fftx_3,
+		threads_per_block_on_fftx_3>>>(x_out, 
+				y0);
+	cudaDeviceSynchronize();
+#if defined(PROFILING)
+	timer_stop(PROFILING_FFTX_3);
+#endif
 }
 
 /*
@@ -606,25 +724,40 @@ static void cffts2_gpu(int is,
 		dcomplex x_out[], 
 		dcomplex y0[], 
 		dcomplex y1[]){
-	if(timers_enabled){timer_start(T_FFTY);}
-
-	int blocks_per_grid_kernel_1=ceil(double(NX*NY*NZ)/double(THREADS_PER_BLOCK_AT_FFT2));
-	int blocks_per_grid_kernel_2=ceil(double(NX*NZ)/double(THREADS_PER_BLOCK_AT_FFT2));
-	int blocks_per_grid_kernel_3=ceil(double(NX*NY*NZ)/double(THREADS_PER_BLOCK_AT_FFT2));
-
-	cffts2_gpu_kernel_1<<<blocks_per_grid_kernel_1, THREADS_PER_BLOCK_AT_FFT2>>>(x_in, 
-			y0);
+#if defined(PROFILING)
+	timer_start(PROFILING_FFTY_1);
+#endif
+	cffts2_gpu_kernel_1<<<blocks_per_grid_on_ffty_1,
+		threads_per_block_on_ffty_1>>>(x_in, 
+				y0);
 	cudaDeviceSynchronize();
-	cffts2_gpu_kernel_2<<<blocks_per_grid_kernel_2, THREADS_PER_BLOCK_AT_FFT2>>>(is, 
-			y0, 
-			y1, 
-			u);
-	cudaDeviceSynchronize();
-	cffts2_gpu_kernel_3<<<blocks_per_grid_kernel_3, THREADS_PER_BLOCK_AT_FFT2>>>(x_out, 
-			y0);
-	cudaDeviceSynchronize();
+#if defined(PROFILING)
+	timer_stop(PROFILING_FFTY_1);
+#endif
 
-	if(timers_enabled){timer_stop(T_FFTY);}
+#if defined(PROFILING)
+	timer_start(PROFILING_FFTY_2);
+#endif
+	cffts2_gpu_kernel_2<<<blocks_per_grid_on_ffty_2,
+		threads_per_block_on_ffty_2>>>(is, 
+				y0, 
+				y1, 
+				u);
+	cudaDeviceSynchronize();
+#if defined(PROFILING)
+	timer_stop(PROFILING_FFTY_2);
+#endif
+
+#if defined(PROFILING)
+	timer_start(PROFILING_FFTY_3);
+#endif
+	cffts2_gpu_kernel_3<<<blocks_per_grid_on_ffty_3,
+		threads_per_block_on_ffty_3>>>(x_out, 
+				y0);
+	cudaDeviceSynchronize();
+#if defined(PROFILING)
+	timer_stop(PROFILING_FFTY_3);
+#endif
 }
 
 /*
@@ -782,25 +915,40 @@ static void cffts3_gpu(int is,
 		dcomplex x_out[], 
 		dcomplex y0[], 
 		dcomplex y1[]){
-	if(timers_enabled){timer_start(T_FFTZ);}
-
-	int blocks_per_grid_kernel_1=ceil(double(NX*NY*NZ)/double(THREADS_PER_BLOCK_AT_FFT3));
-	int blocks_per_grid_kernel_2=ceil(double(NX*NY)/double(THREADS_PER_BLOCK_AT_FFT3));
-	int blocks_per_grid_kernel_3=ceil(double(NX*NY*NZ)/double(THREADS_PER_BLOCK_AT_FFT3));
-
-	cffts3_gpu_kernel_1<<<blocks_per_grid_kernel_1, THREADS_PER_BLOCK_AT_FFT3>>>(x_in, 
-			y0);
+#if defined(PROFILING)
+	timer_start(PROFILING_FFTZ_1);
+#endif
+	cffts3_gpu_kernel_1<<<blocks_per_grid_on_fftz_1,
+		threads_per_block_on_fftz_1>>>(x_in, 
+				y0);
 	cudaDeviceSynchronize();
-	cffts3_gpu_kernel_2<<<blocks_per_grid_kernel_2, THREADS_PER_BLOCK_AT_FFT3>>>(is, 
-			y0, 
-			y1, 
-			u);
-	cudaDeviceSynchronize();
-	cffts3_gpu_kernel_3<<<blocks_per_grid_kernel_3, THREADS_PER_BLOCK_AT_FFT3>>>(x_out, 
-			y0);
-	cudaDeviceSynchronize();
+#if defined(PROFILING)
+	timer_stop(PROFILING_FFTZ_1);
+#endif
 
-	if(timers_enabled){timer_stop(T_FFTZ);}
+#if defined(PROFILING)
+	timer_start(PROFILING_FFTZ_2);
+#endif
+	cffts3_gpu_kernel_2<<<blocks_per_grid_on_fftz_2,
+		threads_per_block_on_fftz_2>>>(is, 
+				y0, 
+				y1, 
+				u);
+	cudaDeviceSynchronize();
+#if defined(PROFILING)
+	timer_stop(PROFILING_FFTZ_2);
+#endif
+
+#if defined(PROFILING)
+	timer_start(PROFILING_FFTZ_3);
+#endif
+	cffts3_gpu_kernel_3<<<blocks_per_grid_on_fftz_3,
+		threads_per_block_on_fftz_3>>>(x_out, 
+				y0);
+	cudaDeviceSynchronize();
+#if defined(PROFILING)
+	timer_stop(PROFILING_FFTZ_3);
+#endif	
 }
 
 /*
@@ -960,18 +1108,23 @@ __global__ void cffts3_gpu_kernel_3(dcomplex x_out[],
 
 static void checksum_gpu(int iteration,
 		dcomplex u1[]){
-	int blocks_per_grid=ceil(double(CHECKSUM_TASKS)/double(THREADS_PER_BLOCK_AT_CHECKSUM));
-
-	checksum_gpu_kernel<<<blocks_per_grid, THREADS_PER_BLOCK_AT_CHECKSUM>>>(iteration, 
-			u1, 
-			sums_device);
-	cudaDeviceSynchronize();
+#if defined(PROFILING)
+	timer_start(PROFILING_CHECKSUM);
+#endif
+	checksum_gpu_kernel<<<blocks_per_grid_on_checksum,
+		threads_per_block_on_checksum,
+		size_shared_data>>>(iteration, 
+				u1, 
+				sums_device);
+#if defined(PROFILING)
+	timer_stop(PROFILING_CHECKSUM);
+#endif
 }
 
 __global__ void checksum_gpu_kernel(int iteration, 
 		dcomplex u1[], 
 		dcomplex sums[]){
-	__shared__ dcomplex share_sums[THREADS_PER_BLOCK_AT_CHECKSUM];
+	dcomplex* share_sums = (dcomplex*)(extern_share_data);
 	int j = (blockIdx.x * blockDim.x + threadIdx.x) + 1;
 	int q, r, s;
 
@@ -1000,9 +1153,14 @@ __global__ void checksum_gpu_kernel(int iteration,
 }
 
 static void compute_indexmap_gpu(double twiddle[]){
-	int blocks_per_grid=ceil(double(NTOTAL)/double(THREADS_PER_BLOCK_AT_COMPUTE_INDEXMAP));
-
-	compute_indexmap_gpu_kernel<<<blocks_per_grid, THREADS_PER_BLOCK_AT_COMPUTE_INDEXMAP>>>(twiddle);
+#if defined(PROFILING)
+	timer_start(PROFILING_INDEXMAP);
+#endif
+	compute_indexmap_gpu_kernel<<<blocks_per_grid_on_compute_indexmap,
+		threads_per_block_on_compute_indexmap>>>(twiddle);
+#if defined(PROFILING)
+	timer_stop(PROFILING_INDEXMAP);
+#endif
 }
 
 __global__ void compute_indexmap_gpu_kernel(double twiddle[]){
@@ -1027,7 +1185,10 @@ __global__ void compute_indexmap_gpu_kernel(double twiddle[]){
 	twiddle[thread_id] = exp(AP*(double)(ii*ii+kj2));
 }
 
-static void compute_initial_conditions_gpu(dcomplex u0[]){    
+static void compute_initial_conditions_gpu(dcomplex u0[]){  
+#if defined(PROFILING)
+	timer_start(PROFILING_INITIAL_CONDITIONS);
+#endif  
 	int z;
 	double start, an, starts[NZ];
 
@@ -1045,10 +1206,12 @@ static void compute_initial_conditions_gpu(dcomplex u0[]){
 
 	cudaMemcpy(starts_device, starts, size_starts_device, cudaMemcpyHostToDevice);
 
-	int blocks_per_grid=ceil(double(NZ)/double(THREADS_PER_BLOCK_AT_COMPUTE_INITIAL_CONDITIONS));
-
-	compute_initial_conditions_gpu_kernel<<<blocks_per_grid, THREADS_PER_BLOCK_AT_COMPUTE_INITIAL_CONDITIONS>>>(u0, 
-			starts_device);
+	compute_initial_conditions_gpu_kernel<<<blocks_per_grid_on_compute_initial_conditions,
+		threads_per_block_on_compute_initial_conditions>>>(u0, 
+				starts_device);
+#if defined(PROFILING)
+	timer_stop(PROFILING_INITIAL_CONDITIONS);
+#endif  
 }
 
 __global__ void compute_initial_conditions_gpu_kernel(dcomplex u0[], 
@@ -1066,12 +1229,17 @@ __global__ void compute_initial_conditions_gpu_kernel(dcomplex u0[],
 static void evolve_gpu(dcomplex u0[], 
 		dcomplex u1[],
 		double twiddle[]){
-	int blocks_per_grid=ceil(double(NTOTAL)/double(THREADS_PER_BLOCK_AT_EVOLVE));
-
-	evolve_gpu_kernel<<<blocks_per_grid, THREADS_PER_BLOCK_AT_EVOLVE>>>(u0, 
-			u1,
-			twiddle);
+#if defined(PROFILING)
+	timer_start(PROFILING_EVOLVE);
+#endif  
+	evolve_gpu_kernel<<<blocks_per_grid_on_evolve,
+		threads_per_block_on_evolve>>>(u0, 
+				u1,
+				twiddle);
 	cudaDeviceSynchronize();
+#if defined(PROFILING)
+	timer_stop(PROFILING_EVOLVE);
+#endif  
 }
 
 __global__ void evolve_gpu_kernel(dcomplex u0[], 
@@ -1110,6 +1278,9 @@ static void fft_gpu(int dir,
 }
 
 static void fft_init_gpu(int n){
+#if defined(PROFILING)
+	timer_start(PROFILING_INIT);
+#endif  
 	int m,ku,i,j,ln;
 	double t, ti;
 	/*
@@ -1132,6 +1303,9 @@ static void fft_init_gpu(int n){
 		ln = 2 * ln;
 	}
 	cudaMemcpy(u_device, u, size_u_device, cudaMemcpyHostToDevice);
+#if defined(PROFILING)
+	timer_stop(PROFILING_INIT);
+#endif 
 }
 
 static int ilog2(int n){
@@ -1165,12 +1339,17 @@ __device__ int ilog2_device(int n){
 static void init_ui_gpu(dcomplex u0[],
 		dcomplex u1[],
 		double twiddle[]){
-	int blocks_per_grid=ceil(double(NTOTAL)/double(THREADS_PER_BLOCK_AT_INIT_UI));
-
-	init_ui_gpu_kernel<<<blocks_per_grid, THREADS_PER_BLOCK_AT_EVOLVE>>>(u0, 
-			u1,
-			twiddle);
+#if defined(PROFILING)
+	timer_start(PROFILING_INIT_UI);
+#endif  
+	init_ui_gpu_kernel<<<blocks_per_grid_on_init_ui,
+		threads_per_block_on_init_ui>>>(u0, 
+				u1,
+				twiddle);
 	cudaDeviceSynchronize();
+#if defined(PROFILING)
+	timer_stop(PROFILING_INIT_UI);
+#endif  
 }
 
 __global__ void init_ui_gpu_kernel(dcomplex u0[],
@@ -1249,28 +1428,6 @@ __device__ void ipow46_device(double a,
 	*result = r;
 }
 
-static void print_timers(){
-	int i;
-	double t, t_m;
-	char* tstrings[T_MAX+1];
-	tstrings[1] = (char*)"          total "; 
-	tstrings[2] = (char*)"          setup "; 
-	tstrings[3] = (char*)"            fft "; 
-	tstrings[4] = (char*)"         evolve "; 
-	tstrings[5] = (char*)"       checksum "; 
-	tstrings[6] = (char*)"           fftx "; 
-	tstrings[7] = (char*)"           ffty "; 
-	tstrings[8] = (char*)"           fftz ";
-
-	t_m = timer_read(T_TOTAL);
-	if(t_m <= 0.0){t_m = 1.00;}
-	for(i = 1; i <= T_MAX; i++){
-		t = timer_read(i);
-		printf(" timer %2d(%16s) :%9.4f (%6.2f%%)\n", 
-				i, tstrings[i], t, t*100.0/t_m);
-	}
-}
-
 __device__ double randlc_device(double* x, 
 		double a){
 	double t1,t2,t3,t4,a1,a2,x1,x2,z;
@@ -1301,15 +1458,6 @@ static void release_gpu(){
 }
 
 static void setup(){
-	FILE* fp;
-
-	if((fp = fopen("timer.flag", "r")) != NULL){
-		timers_enabled = TRUE;
-		fclose(fp);
-	}else{
-		timers_enabled = FALSE;
-	}
-
 	niter = NITER_DEFAULT;
 
 	printf("\n\n NAS Parallel Benchmarks 4.1 CUDA C++ version - FT Benchmark\n\n");
@@ -1319,26 +1467,161 @@ static void setup(){
 }
 
 static void setup_gpu(){
-	cudaDeviceProp deviceProp;
-	cudaSetDevice(DEFAULT_GPU);	
-	cudaGetDeviceProperties(&deviceProp, DEFAULT_GPU);	
+	/*
+	 * struct cudaDeviceProp{
+	 *  char name[256];
+	 *  size_t totalGlobalMem;
+	 *  size_t sharedMemPerBlock;
+	 *  int regsPerBlock;
+	 *  int warpSize;
+	 *  size_t memPitch;
+	 *  int maxThreadsPerBlock;
+	 *  int maxThreadsDim[3];
+	 *  int maxGridSize[3];
+	 *  size_t totalConstMem;
+	 *  int major;
+	 *  int minor;
+	 *  int clockRate;
+	 *  size_t textureAlignment;
+	 *  int deviceOverlap;
+	 *  int multiProcessorCount;
+	 *  int kernelExecTimeoutEnabled;
+	 *  int integrated;
+	 *  int canMapHostMemory;
+	 *  int computeMode;
+	 *  int concurrentKernels;
+	 *  int ECCEnabled;
+	 *  int pciBusID;
+	 *  int pciDeviceID;
+	 *  int tccDriver;
+	 * }
+	 */
+	/* amount of available devices */ 
+	cudaGetDeviceCount(&total_devices);
 
-	THREADS_PER_BLOCK_AT_COMPUTE_INDEXMAP = deviceProp.maxThreadsPerBlock;
-	THREADS_PER_BLOCK_AT_COMPUTE_INITIAL_CONDITIONS = 128;
-	THREADS_PER_BLOCK_AT_INIT_UI = deviceProp.maxThreadsPerBlock;	
-	THREADS_PER_BLOCK_AT_EVOLVE = deviceProp.maxThreadsPerBlock;
-	THREADS_PER_BLOCK_AT_FFT1 = deviceProp.maxThreadsPerBlock;
-	THREADS_PER_BLOCK_AT_FFT2 = deviceProp.maxThreadsPerBlock;
-	THREADS_PER_BLOCK_AT_FFT3 = deviceProp.maxThreadsPerBlock;
+	/* define gpu_device */
+	if(total_devices==0){
+		printf("\n\n\nNo Nvidia GPU found!\n\n\n");
+		exit(-1);
+	}else if((GPU_DEVICE>=0)&&
+			(GPU_DEVICE<total_devices)){
+		gpu_device_id = GPU_DEVICE;
+	}else{
+		gpu_device_id = 0;
+	}
+	cudaSetDevice(gpu_device_id);	
+	cudaGetDeviceProperties(&gpu_device_properties, gpu_device_id);
 
-	size_sums_device=sizeof(dcomplex)*(NITER_DEFAULT+1);
-	size_starts_device=sizeof(double)*(NZ);
-	size_twiddle_device=sizeof(double)*(NTOTAL);
-	size_u_device=sizeof(dcomplex)*(MAXDIM);
-	size_u0_device=sizeof(dcomplex)*(NTOTAL);
-	size_u1_device=sizeof(dcomplex)*(NTOTAL);
-	size_y0_device=sizeof(dcomplex)*(NTOTAL);
-	size_y1_device=sizeof(dcomplex)*(NTOTAL);
+	/* define threads_per_block */
+	if((FT_THREADS_PER_BLOCK_ON_COMPUTE_INDEXMAP>=1)&&
+			(FT_THREADS_PER_BLOCK_ON_COMPUTE_INDEXMAP<=gpu_device_properties.maxThreadsPerBlock)){
+		threads_per_block_on_compute_indexmap = FT_THREADS_PER_BLOCK_ON_COMPUTE_INDEXMAP;
+	}else{
+		threads_per_block_on_compute_indexmap = gpu_device_properties.warpSize;
+	}
+	if((FT_THREADS_PER_BLOCK_ON_COMPUTE_INITIAL_CONDITIONS>=1)&&
+			(FT_THREADS_PER_BLOCK_ON_COMPUTE_INITIAL_CONDITIONS<=gpu_device_properties.maxThreadsPerBlock)){
+		threads_per_block_on_compute_initial_conditions = FT_THREADS_PER_BLOCK_ON_COMPUTE_INITIAL_CONDITIONS;
+	}else{
+		threads_per_block_on_compute_initial_conditions = gpu_device_properties.warpSize;
+	}
+	if((FT_THREADS_PER_BLOCK_ON_INIT_UI>=1)&&
+			(FT_THREADS_PER_BLOCK_ON_INIT_UI<=gpu_device_properties.maxThreadsPerBlock)){
+		threads_per_block_on_init_ui = FT_THREADS_PER_BLOCK_ON_INIT_UI;
+	}else{
+		threads_per_block_on_init_ui=gpu_device_properties.warpSize;
+	}
+	if((FT_THREADS_PER_BLOCK_ON_EVOLVE>=1)&&
+			(FT_THREADS_PER_BLOCK_ON_EVOLVE<=gpu_device_properties.maxThreadsPerBlock)){
+		threads_per_block_on_evolve = FT_THREADS_PER_BLOCK_ON_EVOLVE;
+	}else{
+		threads_per_block_on_evolve=gpu_device_properties.warpSize;
+	}
+	if((FT_THREADS_PER_BLOCK_ON_FFTX_1>=1)&&
+			(FT_THREADS_PER_BLOCK_ON_FFTX_1<=gpu_device_properties.maxThreadsPerBlock)){
+		threads_per_block_on_fftx_1 = FT_THREADS_PER_BLOCK_ON_FFTX_1;
+	}else{
+		threads_per_block_on_fftx_1 = gpu_device_properties.warpSize;
+	}
+	if((FT_THREADS_PER_BLOCK_ON_FFTX_2>=1)&&
+			(FT_THREADS_PER_BLOCK_ON_FFTX_2<=gpu_device_properties.maxThreadsPerBlock)){
+		threads_per_block_on_fftx_2 = FT_THREADS_PER_BLOCK_ON_FFTX_2;
+	}else{
+		threads_per_block_on_fftx_2 = gpu_device_properties.warpSize;
+	}
+	if((FT_THREADS_PER_BLOCK_ON_FFTX_3>=1)&&
+			(FT_THREADS_PER_BLOCK_ON_FFTX_3<=gpu_device_properties.maxThreadsPerBlock)){
+		threads_per_block_on_fftx_3 = FT_THREADS_PER_BLOCK_ON_FFTX_3;
+	}else{
+		threads_per_block_on_fftx_3 = gpu_device_properties.warpSize;
+	}
+	if((FT_THREADS_PER_BLOCK_ON_FFTY_1>=1)&&
+			(FT_THREADS_PER_BLOCK_ON_FFTY_1<=gpu_device_properties.maxThreadsPerBlock)){
+		threads_per_block_on_ffty_1 = FT_THREADS_PER_BLOCK_ON_FFTY_1;
+	}else{
+		threads_per_block_on_ffty_1 = gpu_device_properties.warpSize;
+	}
+	if((FT_THREADS_PER_BLOCK_ON_FFTY_2>=1)&&
+			(FT_THREADS_PER_BLOCK_ON_FFTY_2<=gpu_device_properties.maxThreadsPerBlock)){
+		threads_per_block_on_ffty_2 = FT_THREADS_PER_BLOCK_ON_FFTY_2;
+	}else{
+		threads_per_block_on_ffty_2 = gpu_device_properties.warpSize;
+	}
+	if((FT_THREADS_PER_BLOCK_ON_FFTY_3>=1)&&
+			(FT_THREADS_PER_BLOCK_ON_FFTY_3<=gpu_device_properties.maxThreadsPerBlock)){
+		threads_per_block_on_ffty_3 = FT_THREADS_PER_BLOCK_ON_FFTY_3;
+	}else{
+		threads_per_block_on_ffty_3 = gpu_device_properties.warpSize;
+	}
+	if((FT_THREADS_PER_BLOCK_ON_FFTZ_1>=1)&&
+			(FT_THREADS_PER_BLOCK_ON_FFTZ_1<=gpu_device_properties.maxThreadsPerBlock)){
+		threads_per_block_on_fftz_1 = FT_THREADS_PER_BLOCK_ON_FFTZ_1;
+	}else{
+		threads_per_block_on_fftz_1 = gpu_device_properties.warpSize;
+	}
+	if((FT_THREADS_PER_BLOCK_ON_FFTZ_2>=1)&&
+			(FT_THREADS_PER_BLOCK_ON_FFTZ_2<=gpu_device_properties.maxThreadsPerBlock)){
+		threads_per_block_on_fftz_2 = FT_THREADS_PER_BLOCK_ON_FFTZ_2;
+	}else{
+		threads_per_block_on_fftz_2 = gpu_device_properties.warpSize;
+	}
+	if((FT_THREADS_PER_BLOCK_ON_FFTZ_3>=1)&&
+			(FT_THREADS_PER_BLOCK_ON_FFTZ_3<=gpu_device_properties.maxThreadsPerBlock)){
+		threads_per_block_on_fftz_3 = FT_THREADS_PER_BLOCK_ON_FFTZ_3;
+	}else{
+		threads_per_block_on_fftz_3 = gpu_device_properties.warpSize;
+	}
+	if((FT_THREADS_PER_BLOCK_ON_CHECKSUM>=1)&&
+			(FT_THREADS_PER_BLOCK_ON_CHECKSUM<=gpu_device_properties.maxThreadsPerBlock)){
+		threads_per_block_on_checksum = FT_THREADS_PER_BLOCK_ON_CHECKSUM;
+	}else{
+		threads_per_block_on_checksum = gpu_device_properties.warpSize;
+	}	
+
+	blocks_per_grid_on_compute_indexmap=ceil(double(NTOTAL)/double(threads_per_block_on_compute_indexmap));
+	blocks_per_grid_on_compute_initial_conditions=ceil(double(NZ)/double(threads_per_block_on_compute_initial_conditions));
+	blocks_per_grid_on_init_ui=ceil(double(NTOTAL)/double(threads_per_block_on_init_ui));
+	blocks_per_grid_on_evolve=ceil(double(NTOTAL)/double(threads_per_block_on_evolve));
+	blocks_per_grid_on_fftx_1=ceil(double(NX*NY*NZ)/double(threads_per_block_on_fftx_1));
+	blocks_per_grid_on_fftx_2=ceil(double(NY*NZ)/double(threads_per_block_on_fftx_2));
+	blocks_per_grid_on_fftx_3=ceil(double(NX*NY*NZ)/double(threads_per_block_on_fftx_3));
+	blocks_per_grid_on_ffty_1=ceil(double(NX*NY*NZ)/double(threads_per_block_on_ffty_1));
+	blocks_per_grid_on_ffty_2=ceil(double(NX*NZ)/double(threads_per_block_on_ffty_2));
+	blocks_per_grid_on_ffty_3=ceil(double(NX*NY*NZ)/double(threads_per_block_on_ffty_3));
+	blocks_per_grid_on_fftz_1=ceil(double(NX*NY*NZ)/double(threads_per_block_on_fftz_1));
+	blocks_per_grid_on_fftz_2=ceil(double(NX*NY)/double(threads_per_block_on_fftz_2));
+	blocks_per_grid_on_fftz_3=ceil(double(NX*NY*NZ)/double(threads_per_block_on_fftz_3));
+	blocks_per_grid_on_checksum=ceil(double(CHECKSUM_TASKS)/double(threads_per_block_on_checksum));
+
+	size_sums_device=(NITER_DEFAULT+1)*sizeof(dcomplex);
+	size_starts_device=NZ*sizeof(double);
+	size_twiddle_device=NTOTAL*sizeof(double);
+	size_u_device=MAXDIM*sizeof(dcomplex);
+	size_u0_device=NTOTAL*sizeof(dcomplex);
+	size_u1_device=NTOTAL*sizeof(dcomplex);
+	size_y0_device=NTOTAL*sizeof(dcomplex);
+	size_y1_device=NTOTAL*sizeof(dcomplex);
+	size_shared_data=threads_per_block_on_checksum*sizeof(dcomplex);
 
 	cudaMalloc(&sums_device, size_sums_device);
 	cudaMalloc(&starts_device, size_starts_device);
@@ -1349,7 +1632,7 @@ static void setup_gpu(){
 	cudaMalloc(&y0_device, size_y0_device);
 	cudaMalloc(&y1_device, size_y1_device);
 
-	omp_set_num_threads(OMP_THREADS);
+	omp_set_num_threads(OMP_THREADS);	
 }
 
 static void verify(int d1,

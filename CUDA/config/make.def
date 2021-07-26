@@ -1,12 +1,5 @@
 #---------------------------------------------------------------------------
-#
-#                SITE- AND/OR PLATFORM-SPECIFIC DEFINITIONS. 
-#
-#---------------------------------------------------------------------------
-
-#---------------------------------------------------------------------------
 # Items in this file will need to be changed for each platform.
-# (Note these definitions are inconsistent with NPB2.1.)
 #---------------------------------------------------------------------------
 
 #---------------------------------------------------------------------------
@@ -25,29 +18,39 @@
 #---------------------------------------------------------------------------
 
 #---------------------------------------------------------------------------
-# This is the C compiler used for OpenMP programs
+# This is the compiler used for CUDA programs
 #---------------------------------------------------------------------------
-COMPUTE_CAPABILITY=-gencode arch=compute_61,code=sm_61
-# ${COMPUTE_CAPABILITY}
+COMPUTE_CAPABILITY = -gencode arch=compute_61,code=sm_61
 
-OPENMP_ENABLE=-Xcompiler -fopenmp -lgomp
-# ${OPENMP_ENABLE}
+OPENMP = -Xcompiler -fopenmp -lgomp
 
-EXTRA_STUFF=-use_fast_math -Xptxas --preserve-relocs -Xptxas -O3
-# ${EXTRA_STUFF}
+REGISTERS = 
 
-CC = nvcc ${COMPUTE_CAPABILITY} ${OPENMP_ENABLE} ${EXTRA_STUFF}
+####-maxrregcount 50
 
-#backup old command
-#CC = nvcc -rdc=true -std=c++14 -gencode arch=compute_61,code=sm_61 -Xcompiler -fopenmp -lgomp -Xcompiler -mcmodel=medium
+OPTIMIZATIONS = -use_fast_math -Xptxas --preserve-relocs -Xptxas -O3
 
+CPP_14 = -std=c++14
+
+NO_NPB_CPP_CONVENTIONS = -DDO_NOT_ALLOCATE_ARRAYS_WITH_DYNAMIC_MEMORY_AND_AS_SINGLE_DIMENSION
+
+PROFILING = -DPROFILING
+
+EXTRA_STUFF = ${COMPUTE_CAPABILITY} ${OPENMP} ${OPTIMIZATIONS} ${REGISTERS}
+
+NVCC = nvcc
+
+CC = ${NVCC} ${EXTRA_STUFF}
+
+#---------------------------------------------------------------------------
 # This links C programs; usually the same as ${CC}
-CLINK	= $(CC)
+#---------------------------------------------------------------------------
+CLINK = $(CC)
 
 #---------------------------------------------------------------------------
 # These macros are passed to the linker 
 #---------------------------------------------------------------------------
-C_LIB  = -lm 
+C_LIB = -lm 
 
 #---------------------------------------------------------------------------
 # These macros are passed to the compiler 
@@ -57,8 +60,7 @@ C_INC = -I../common
 #---------------------------------------------------------------------------
 # Global *compile time* flags for C programs
 #---------------------------------------------------------------------------
-CFLAGS	= -O3
-# CFLAGS = -g
+CFLAGS = -O3
 
 #---------------------------------------------------------------------------
 # Global *link time* flags. Flags for increasing maximum executable 
@@ -66,22 +68,19 @@ CFLAGS	= -O3
 #---------------------------------------------------------------------------
 CLINKFLAGS = -O3
 
-
 #---------------------------------------------------------------------------
 # Utilities C:
 #
-# This is the C compiler used to compile C utilities.  Flags required by 
+# This is the C compiler used to compile C utilities. Flags required by 
 # this compiler go here also; typically there are few flags required; hence 
 # there are no separate macros provided for such flags.
 #---------------------------------------------------------------------------
 UCC	= cc
 
-
 #---------------------------------------------------------------------------
-# Destination of executables, relative to subdirs of the main directory. . 
+# Destination of executables, relative to subdirs of the main directory. 
 #---------------------------------------------------------------------------
 BINDIR	= ../bin
-
 
 #---------------------------------------------------------------------------
 # The variable RAND controls which random number generator 
@@ -89,10 +88,9 @@ BINDIR	= ../bin
 # Use "randi8" unless there is a reason to use another one. 
 # Other allowed values are "randi8_safe", "randdp" and "randdpvec"
 #---------------------------------------------------------------------------
-# RAND   = randi8
+# RAND = randi8
 # The following is highly reliable but may be slow:
-RAND   = randdp
-
+RAND = randdp
 
 #---------------------------------------------------------------------------
 # The variable WTIME is the name of the wtime source code module in the
@@ -100,8 +98,7 @@ RAND   = randdp
 # For most machines,       use wtime.c
 # For SGI power challenge: use wtime_sgi64.c
 #---------------------------------------------------------------------------
-WTIME  = wtime.cpp
-
+WTIME = wtime.cpp
 
 #---------------------------------------------------------------------------
 # Enable if either Cray or IBM: 
@@ -109,7 +106,5 @@ WTIME  = wtime.cpp
 # This is used by the C compiler to pass the machine name to common/wtime.h,
 # where the C/Fortran binding interface format is determined
 #---------------------------------------------------------------------------
-# MACHINE	=	-DCRAY
-# MACHINE	=	-DIBM
-
-
+# MACHINE = -DCRAY
+# MACHINE = -DIBM

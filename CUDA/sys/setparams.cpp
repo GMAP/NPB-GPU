@@ -85,11 +85,18 @@
 #include <ctime>
 
 /*
+ * gpu.config and cpu model
+ */
+#define GPU_CONFIG_PATH ("../config/gpu.config")
+#define NO_CONFIG ("-1")
+#define CPU_INFO_PATH ("/proc/cpuinfo")
+#define NO_CPU_INFO ("No info")
+
+/*
  * this is the master version number for this set of 
  * NPB benchmarks. it is in an obscure place so people
  * won't accidentally change it. 
  */
-
 #define VERSION "4.1"
 
 /* controls verbose output from setparams */
@@ -101,6 +108,10 @@
 #define FINDENT  "        "
 #define CONTINUE "     > "
 
+char* cpu_model();
+char* read_gpu_config(char* data);
+void write_gpu_config(FILE* fp);
+void profiling_flag(FILE* definitions_file);
 void get_info(char *argv[], int *typep, char *classp);
 void check_info(int type, char class_npb);
 void read_info(int type, char *classp);
@@ -117,7 +128,7 @@ void write_is_info(FILE *fp, char class_npb);
 void write_compiler_info(int type, FILE *fp);
 void write_convertdouble_info(int type, FILE *fp);
 void check_line(char *line, char *label, char *val);
-int  check_include_line(char *line, char *filename);
+int check_include_line(char *line, char *filename);
 void put_string(FILE *fp, char *name, char *val);
 void put_def_string(FILE *fp, char *name, char *val);
 void put_def_variable(FILE *fp, char *name, char *val);
@@ -184,6 +195,222 @@ main(int argc, char *argv[]){
 	exit(0);
 }
 
+void profiling_flag(FILE* definitions_file){
+	FILE* file;
+	if((file = fopen("../timer.flag", "r")) != NULL){
+		fprintf(definitions_file, "#define PROFILING\n");
+		fclose(file);
+	}
+}
+
+/*
+ * read_nvcc_cuda_version(): return a string with the nvcc/cuda version
+ */
+char* read_nvcc_cuda_version(){
+	FILE *file;
+	char command[64];
+	char result[64];
+	char* pointer;
+	sprintf(command, "nvcc --version |grep release |awk '{print $6}'"); 
+	file = popen(command,"r"); 
+	fgets(result, 1024 , file);
+	pointer=result;
+	strtok(pointer, "\n");
+	fclose(file);
+	return (++pointer);
+}
+
+/*
+ * cpu_model(): return a string with the cpu model
+ */
+char* cpu_model(){
+	FILE* file = fopen((char*)CPU_INFO_PATH, "r");
+	char* error = (char*)NO_CPU_INFO;
+	char* line = NULL;
+	char* cpu_model;
+	size_t n = 0;	
+	if(file == NULL){
+		return error;
+	}		
+	while(getline(&line, &n, file) > 0){
+		if(strstr(line, "model name")){
+			cpu_model=line;
+			while(*cpu_model != ':'){
+				cpu_model++;
+			} cpu_model++;
+			while(*cpu_model == ' '){
+				cpu_model++;
+			}
+			strtok(cpu_model, "\n");
+			fclose(file);
+			return cpu_model;
+		}
+	}
+	fclose(file);
+	return error;
+}
+
+/*
+ * read_gpu_config(): read a value from gpu.config file
+ */
+char* read_gpu_config(char* data){
+	FILE* file = fopen((char*)GPU_CONFIG_PATH, "r");
+	char* line = NULL;
+	char* data_read;
+	size_t n = 0;	
+	if(file == NULL){	
+		return (char*)NO_CONFIG;
+	}	
+	while(getline(&line, &n, file) > 0){
+		if(strstr(line, (char*)data)){
+			data_read=line;
+			while(*data_read != '='){
+				data_read++;
+			} data_read++;
+			while(*data_read == ' '){
+				data_read++;
+			}
+			strtok(data_read, "\n");
+			fclose(file);
+			return data_read;
+		}
+	}
+	fclose(file);
+	return (char*)NO_CONFIG;
+}
+
+/*
+ * write_gpu_config(): write the values of the gpu.config file
+ */
+void write_gpu_config(FILE *fp){
+	/* gpu device */
+	put_def_variable(fp, (char*)"GPU_DEVICE", (char*)read_gpu_config((char*)"GPU_DEVICE"));
+
+	/* bt */
+	/* new */
+	put_def_variable(fp, (char*)"BT_THREADS_PER_BLOCK_ON_ADD", (char*)read_gpu_config((char*)"BT_THREADS_PER_BLOCK_ON_ADD"));
+	put_def_variable(fp, (char*)"BT_THREADS_PER_BLOCK_ON_RHS_1", (char*)read_gpu_config((char*)"BT_THREADS_PER_BLOCK_ON_RHS_1"));
+	put_def_variable(fp, (char*)"BT_THREADS_PER_BLOCK_ON_RHS_2", (char*)read_gpu_config((char*)"BT_THREADS_PER_BLOCK_ON_RHS_2"));
+	put_def_variable(fp, (char*)"BT_THREADS_PER_BLOCK_ON_RHS_3", (char*)read_gpu_config((char*)"BT_THREADS_PER_BLOCK_ON_RHS_3"));
+	put_def_variable(fp, (char*)"BT_THREADS_PER_BLOCK_ON_RHS_4", (char*)read_gpu_config((char*)"BT_THREADS_PER_BLOCK_ON_RHS_4"));
+	put_def_variable(fp, (char*)"BT_THREADS_PER_BLOCK_ON_RHS_5", (char*)read_gpu_config((char*)"BT_THREADS_PER_BLOCK_ON_RHS_5"));
+	put_def_variable(fp, (char*)"BT_THREADS_PER_BLOCK_ON_RHS_6", (char*)read_gpu_config((char*)"BT_THREADS_PER_BLOCK_ON_RHS_6"));
+	put_def_variable(fp, (char*)"BT_THREADS_PER_BLOCK_ON_RHS_7", (char*)read_gpu_config((char*)"BT_THREADS_PER_BLOCK_ON_RHS_7"));
+	put_def_variable(fp, (char*)"BT_THREADS_PER_BLOCK_ON_RHS_8", (char*)read_gpu_config((char*)"BT_THREADS_PER_BLOCK_ON_RHS_8"));
+	put_def_variable(fp, (char*)"BT_THREADS_PER_BLOCK_ON_RHS_9", (char*)read_gpu_config((char*)"BT_THREADS_PER_BLOCK_ON_RHS_9"));
+	put_def_variable(fp, (char*)"BT_THREADS_PER_BLOCK_ON_X_SOLVE_1", (char*)read_gpu_config((char*)"BT_THREADS_PER_BLOCK_ON_X_SOLVE_1"));
+	put_def_variable(fp, (char*)"BT_THREADS_PER_BLOCK_ON_X_SOLVE_2", (char*)read_gpu_config((char*)"BT_THREADS_PER_BLOCK_ON_X_SOLVE_2"));
+	put_def_variable(fp, (char*)"BT_THREADS_PER_BLOCK_ON_X_SOLVE_3", (char*)read_gpu_config((char*)"BT_THREADS_PER_BLOCK_ON_X_SOLVE_3"));
+	put_def_variable(fp, (char*)"BT_THREADS_PER_BLOCK_ON_Y_SOLVE_1", (char*)read_gpu_config((char*)"BT_THREADS_PER_BLOCK_ON_Y_SOLVE_1"));
+	put_def_variable(fp, (char*)"BT_THREADS_PER_BLOCK_ON_Y_SOLVE_2", (char*)read_gpu_config((char*)"BT_THREADS_PER_BLOCK_ON_Y_SOLVE_2"));
+	put_def_variable(fp, (char*)"BT_THREADS_PER_BLOCK_ON_Y_SOLVE_3", (char*)read_gpu_config((char*)"BT_THREADS_PER_BLOCK_ON_Y_SOLVE_3"));
+	put_def_variable(fp, (char*)"BT_THREADS_PER_BLOCK_ON_Z_SOLVE_1", (char*)read_gpu_config((char*)"BT_THREADS_PER_BLOCK_ON_Z_SOLVE_1"));
+	put_def_variable(fp, (char*)"BT_THREADS_PER_BLOCK_ON_Z_SOLVE_2", (char*)read_gpu_config((char*)"BT_THREADS_PER_BLOCK_ON_Z_SOLVE_2"));
+	put_def_variable(fp, (char*)"BT_THREADS_PER_BLOCK_ON_Z_SOLVE_3", (char*)read_gpu_config((char*)"BT_THREADS_PER_BLOCK_ON_Z_SOLVE_3"));
+	/* old */
+	put_def_variable(fp, (char*)"BT_THREADS_PER_BLOCK_ON_EXACT_RHS_1", (char*)read_gpu_config((char*)"BT_THREADS_PER_BLOCK_ON_EXACT_RHS_1"));
+	put_def_variable(fp, (char*)"BT_THREADS_PER_BLOCK_ON_EXACT_RHS_2", (char*)read_gpu_config((char*)"BT_THREADS_PER_BLOCK_ON_EXACT_RHS_2"));
+	put_def_variable(fp, (char*)"BT_THREADS_PER_BLOCK_ON_EXACT_RHS_3", (char*)read_gpu_config((char*)"BT_THREADS_PER_BLOCK_ON_EXACT_RHS_3"));
+	put_def_variable(fp, (char*)"BT_THREADS_PER_BLOCK_ON_EXACT_RHS_4", (char*)read_gpu_config((char*)"BT_THREADS_PER_BLOCK_ON_EXACT_RHS_4"));
+	put_def_variable(fp, (char*)"BT_THREADS_PER_BLOCK_ON_ERROR_NORM_1", (char*)read_gpu_config((char*)"BT_THREADS_PER_BLOCK_ON_ERROR_NORM_1"));
+	put_def_variable(fp, (char*)"BT_THREADS_PER_BLOCK_ON_ERROR_NORM_2", (char*)read_gpu_config((char*)"BT_THREADS_PER_BLOCK_ON_ERROR_NORM_2"));
+	put_def_variable(fp, (char*)"BT_THREADS_PER_BLOCK_ON_INITIALIZE", (char*)read_gpu_config((char*)"BT_THREADS_PER_BLOCK_ON_INITIALIZE"));
+	put_def_variable(fp, (char*)"BT_THREADS_PER_BLOCK_ON_RHS_NORM_1", (char*)read_gpu_config((char*)"BT_THREADS_PER_BLOCK_ON_RHS_NORM_1"));
+	put_def_variable(fp, (char*)"BT_THREADS_PER_BLOCK_ON_RHS_NORM_2", (char*)read_gpu_config((char*)"BT_THREADS_PER_BLOCK_ON_RHS_NORM_2"));	
+
+	/* cg */
+	put_def_variable(fp, (char*)"CG_THREADS_PER_BLOCK_ON_KERNEL_ONE", (char*)read_gpu_config((char*)"CG_THREADS_PER_BLOCK_ON_KERNEL_ONE"));
+	put_def_variable(fp, (char*)"CG_THREADS_PER_BLOCK_ON_KERNEL_TWO", (char*)read_gpu_config((char*)"CG_THREADS_PER_BLOCK_ON_KERNEL_TWO"));
+	put_def_variable(fp, (char*)"CG_THREADS_PER_BLOCK_ON_KERNEL_THREE", (char*)read_gpu_config((char*)"CG_THREADS_PER_BLOCK_ON_KERNEL_THREE"));
+	put_def_variable(fp, (char*)"CG_THREADS_PER_BLOCK_ON_KERNEL_FOUR", (char*)read_gpu_config((char*)"CG_THREADS_PER_BLOCK_ON_KERNEL_FOUR"));
+	put_def_variable(fp, (char*)"CG_THREADS_PER_BLOCK_ON_KERNEL_FIVE", (char*)read_gpu_config((char*)"CG_THREADS_PER_BLOCK_ON_KERNEL_FIVE"));
+	put_def_variable(fp, (char*)"CG_THREADS_PER_BLOCK_ON_KERNEL_SIX", (char*)read_gpu_config((char*)"CG_THREADS_PER_BLOCK_ON_KERNEL_SIX"));
+	put_def_variable(fp, (char*)"CG_THREADS_PER_BLOCK_ON_KERNEL_SEVEN", (char*)read_gpu_config((char*)"CG_THREADS_PER_BLOCK_ON_KERNEL_SEVEN"));
+	put_def_variable(fp, (char*)"CG_THREADS_PER_BLOCK_ON_KERNEL_EIGHT", (char*)read_gpu_config((char*)"CG_THREADS_PER_BLOCK_ON_KERNEL_EIGHT"));
+	put_def_variable(fp, (char*)"CG_THREADS_PER_BLOCK_ON_KERNEL_NINE", (char*)read_gpu_config((char*)"CG_THREADS_PER_BLOCK_ON_KERNEL_NINE"));
+	put_def_variable(fp, (char*)"CG_THREADS_PER_BLOCK_ON_KERNEL_TEN", (char*)read_gpu_config((char*)"CG_THREADS_PER_BLOCK_ON_KERNEL_TEN"));
+	put_def_variable(fp, (char*)"CG_THREADS_PER_BLOCK_ON_KERNEL_ELEVEN", (char*)read_gpu_config((char*)"CG_THREADS_PER_BLOCK_ON_KERNEL_ELEVEN"));
+
+	/* ep */
+	put_def_variable(fp, (char*)"EP_THREADS_PER_BLOCK", (char*)read_gpu_config((char*)"EP_THREADS_PER_BLOCK"));
+
+	/* ft */
+	put_def_variable(fp, (char*)"FT_THREADS_PER_BLOCK_ON_CHECKSUM", (char*)read_gpu_config((char*)"FT_THREADS_PER_BLOCK_ON_CHECKSUM"));
+	put_def_variable(fp, (char*)"FT_THREADS_PER_BLOCK_ON_COMPUTE_INDEXMAP", (char*)read_gpu_config((char*)"FT_THREADS_PER_BLOCK_ON_COMPUTE_INDEXMAP"));
+	put_def_variable(fp, (char*)"FT_THREADS_PER_BLOCK_ON_COMPUTE_INITIAL_CONDITIONS", (char*)read_gpu_config((char*)"FT_THREADS_PER_BLOCK_ON_COMPUTE_INITIAL_CONDITIONS"));	
+	put_def_variable(fp, (char*)"FT_THREADS_PER_BLOCK_ON_EVOLVE", (char*)read_gpu_config((char*)"FT_THREADS_PER_BLOCK_ON_EVOLVE"));
+	put_def_variable(fp, (char*)"FT_THREADS_PER_BLOCK_ON_FFTX_1", (char*)read_gpu_config((char*)"FT_THREADS_PER_BLOCK_ON_FFTX_1"));
+	put_def_variable(fp, (char*)"FT_THREADS_PER_BLOCK_ON_FFTX_2", (char*)read_gpu_config((char*)"FT_THREADS_PER_BLOCK_ON_FFTX_2"));
+	put_def_variable(fp, (char*)"FT_THREADS_PER_BLOCK_ON_FFTX_3", (char*)read_gpu_config((char*)"FT_THREADS_PER_BLOCK_ON_FFTX_3"));
+	put_def_variable(fp, (char*)"FT_THREADS_PER_BLOCK_ON_FFTY_1", (char*)read_gpu_config((char*)"FT_THREADS_PER_BLOCK_ON_FFTY_1"));
+	put_def_variable(fp, (char*)"FT_THREADS_PER_BLOCK_ON_FFTY_2", (char*)read_gpu_config((char*)"FT_THREADS_PER_BLOCK_ON_FFTY_2"));
+	put_def_variable(fp, (char*)"FT_THREADS_PER_BLOCK_ON_FFTY_3", (char*)read_gpu_config((char*)"FT_THREADS_PER_BLOCK_ON_FFTY_3"));
+	put_def_variable(fp, (char*)"FT_THREADS_PER_BLOCK_ON_FFTZ_1", (char*)read_gpu_config((char*)"FT_THREADS_PER_BLOCK_ON_FFTZ_1"));
+	put_def_variable(fp, (char*)"FT_THREADS_PER_BLOCK_ON_FFTZ_2", (char*)read_gpu_config((char*)"FT_THREADS_PER_BLOCK_ON_FFTZ_2"));
+	put_def_variable(fp, (char*)"FT_THREADS_PER_BLOCK_ON_FFTZ_3", (char*)read_gpu_config((char*)"FT_THREADS_PER_BLOCK_ON_FFTZ_3"));
+	put_def_variable(fp, (char*)"FT_THREADS_PER_BLOCK_ON_INIT_UI", (char*)read_gpu_config((char*)"FT_THREADS_PER_BLOCK_ON_INIT_UI"));
+
+	/* is */
+	put_def_variable(fp, (char*)"IS_THREADS_PER_BLOCK_ON_CREATE_SEQ", (char*)read_gpu_config((char*)"IS_THREADS_PER_BLOCK_ON_CREATE_SEQ"));	
+	put_def_variable(fp, (char*)"IS_THREADS_PER_BLOCK_ON_FULL_VERIFY", (char*)read_gpu_config((char*)"IS_THREADS_PER_BLOCK_ON_FULL_VERIFY"));
+	put_def_variable(fp, (char*)"IS_THREADS_PER_BLOCK_ON_RANK", (char*)read_gpu_config((char*)"IS_THREADS_PER_BLOCK_ON_RANK"));
+
+	/* mg */
+	put_def_variable(fp, (char*)"MG_THREADS_PER_BLOCK_ON_COMM3", (char*)read_gpu_config((char*)"MG_THREADS_PER_BLOCK_ON_COMM3"));
+	put_def_variable(fp, (char*)"MG_THREADS_PER_BLOCK_ON_INTERP", (char*)read_gpu_config((char*)"MG_THREADS_PER_BLOCK_ON_INTERP"));
+	put_def_variable(fp, (char*)"MG_THREADS_PER_BLOCK_ON_NORM2U3", (char*)read_gpu_config((char*)"MG_THREADS_PER_BLOCK_ON_NORM2U3"));
+	put_def_variable(fp, (char*)"MG_THREADS_PER_BLOCK_ON_PSINV", (char*)read_gpu_config((char*)"MG_THREADS_PER_BLOCK_ON_PSINV"));
+	put_def_variable(fp, (char*)"MG_THREADS_PER_BLOCK_ON_RESID", (char*)read_gpu_config((char*)"MG_THREADS_PER_BLOCK_ON_RESID"));
+	put_def_variable(fp, (char*)"MG_THREADS_PER_BLOCK_ON_RPRJ3", (char*)read_gpu_config((char*)"MG_THREADS_PER_BLOCK_ON_RPRJ3"));
+	put_def_variable(fp, (char*)"MG_THREADS_PER_BLOCK_ON_ZERO3", (char*)read_gpu_config((char*)"MG_THREADS_PER_BLOCK_ON_ZERO3"));
+
+	/* lu */
+	put_def_variable(fp, (char*)"LU_THREADS_PER_BLOCK_ON_ERHS_1", (char*)read_gpu_config((char*)"LU_THREADS_PER_BLOCK_ON_ERHS_1"));
+	put_def_variable(fp, (char*)"LU_THREADS_PER_BLOCK_ON_ERHS_2", (char*)read_gpu_config((char*)"LU_THREADS_PER_BLOCK_ON_ERHS_2"));
+	put_def_variable(fp, (char*)"LU_THREADS_PER_BLOCK_ON_ERHS_3", (char*)read_gpu_config((char*)"LU_THREADS_PER_BLOCK_ON_ERHS_3"));
+	put_def_variable(fp, (char*)"LU_THREADS_PER_BLOCK_ON_ERHS_4", (char*)read_gpu_config((char*)"LU_THREADS_PER_BLOCK_ON_ERHS_4"));
+	put_def_variable(fp, (char*)"LU_THREADS_PER_BLOCK_ON_ERROR", (char*)read_gpu_config((char*)"LU_THREADS_PER_BLOCK_ON_ERROR"));
+	put_def_variable(fp, (char*)"LU_THREADS_PER_BLOCK_ON_NORM", (char*)read_gpu_config((char*)"LU_THREADS_PER_BLOCK_ON_NORM"));
+	put_def_variable(fp, (char*)"LU_THREADS_PER_BLOCK_ON_JACLD_BLTS", (char*)read_gpu_config((char*)"LU_THREADS_PER_BLOCK_ON_JACLD_BLTS"));
+	put_def_variable(fp, (char*)"LU_THREADS_PER_BLOCK_ON_JACU_BUTS", (char*)read_gpu_config((char*)"LU_THREADS_PER_BLOCK_ON_JACU_BUTS"));
+	put_def_variable(fp, (char*)"LU_THREADS_PER_BLOCK_ON_L2NORM", (char*)read_gpu_config((char*)"LU_THREADS_PER_BLOCK_ON_L2NORM"));
+	put_def_variable(fp, (char*)"LU_THREADS_PER_BLOCK_ON_PINTGR_1", (char*)read_gpu_config((char*)"LU_THREADS_PER_BLOCK_ON_PINTGR_1"));
+	put_def_variable(fp, (char*)"LU_THREADS_PER_BLOCK_ON_PINTGR_2", (char*)read_gpu_config((char*)"LU_THREADS_PER_BLOCK_ON_PINTGR_2"));
+	put_def_variable(fp, (char*)"LU_THREADS_PER_BLOCK_ON_PINTGR_3", (char*)read_gpu_config((char*)"LU_THREADS_PER_BLOCK_ON_PINTGR_3"));
+	put_def_variable(fp, (char*)"LU_THREADS_PER_BLOCK_ON_PINTGR_4", (char*)read_gpu_config((char*)"LU_THREADS_PER_BLOCK_ON_PINTGR_4"));
+	put_def_variable(fp, (char*)"LU_THREADS_PER_BLOCK_ON_RHS_1", (char*)read_gpu_config((char*)"LU_THREADS_PER_BLOCK_ON_RHS_1"));
+	put_def_variable(fp, (char*)"LU_THREADS_PER_BLOCK_ON_RHS_2", (char*)read_gpu_config((char*)"LU_THREADS_PER_BLOCK_ON_RHS_2"));
+	put_def_variable(fp, (char*)"LU_THREADS_PER_BLOCK_ON_RHS_3", (char*)read_gpu_config((char*)"LU_THREADS_PER_BLOCK_ON_RHS_3"));
+	put_def_variable(fp, (char*)"LU_THREADS_PER_BLOCK_ON_RHS_4", (char*)read_gpu_config((char*)"LU_THREADS_PER_BLOCK_ON_RHS_4"));
+	put_def_variable(fp, (char*)"LU_THREADS_PER_BLOCK_ON_SETBV_1", (char*)read_gpu_config((char*)"LU_THREADS_PER_BLOCK_ON_SETBV_1"));
+	put_def_variable(fp, (char*)"LU_THREADS_PER_BLOCK_ON_SETBV_2", (char*)read_gpu_config((char*)"LU_THREADS_PER_BLOCK_ON_SETBV_2"));
+	put_def_variable(fp, (char*)"LU_THREADS_PER_BLOCK_ON_SETBV_3", (char*)read_gpu_config((char*)"LU_THREADS_PER_BLOCK_ON_SETBV_3"));
+	put_def_variable(fp, (char*)"LU_THREADS_PER_BLOCK_ON_SETIV", (char*)read_gpu_config((char*)"LU_THREADS_PER_BLOCK_ON_SETIV"));
+	put_def_variable(fp, (char*)"LU_THREADS_PER_BLOCK_ON_SSOR_1", (char*)read_gpu_config((char*)"LU_THREADS_PER_BLOCK_ON_SSOR_1"));
+	put_def_variable(fp, (char*)"LU_THREADS_PER_BLOCK_ON_SSOR_2", (char*)read_gpu_config((char*)"LU_THREADS_PER_BLOCK_ON_SSOR_2"));
+
+	/* sp */
+	put_def_variable(fp, (char*)"SP_THREADS_PER_BLOCK_ON_ADD", (char*)read_gpu_config((char*)"SP_THREADS_PER_BLOCK_ON_ADD"));
+	put_def_variable(fp, (char*)"SP_THREADS_PER_BLOCK_ON_COMPUTE_RHS_1", (char*)read_gpu_config((char*)"SP_THREADS_PER_BLOCK_ON_COMPUTE_RHS_1"));
+	put_def_variable(fp, (char*)"SP_THREADS_PER_BLOCK_ON_COMPUTE_RHS_2", (char*)read_gpu_config((char*)"SP_THREADS_PER_BLOCK_ON_COMPUTE_RHS_2"));
+	put_def_variable(fp, (char*)"SP_THREADS_PER_BLOCK_ON_ERROR_NORM_1", (char*)read_gpu_config((char*)"SP_THREADS_PER_BLOCK_ON_ERROR_NORM_1"));
+	put_def_variable(fp, (char*)"SP_THREADS_PER_BLOCK_ON_ERROR_NORM_2", (char*)read_gpu_config((char*)"SP_THREADS_PER_BLOCK_ON_ERROR_NORM_2"));
+	put_def_variable(fp, (char*)"SP_THREADS_PER_BLOCK_ON_EXACT_RHS_1", (char*)read_gpu_config((char*)"SP_THREADS_PER_BLOCK_ON_EXACT_RHS_1"));
+	put_def_variable(fp, (char*)"SP_THREADS_PER_BLOCK_ON_EXACT_RHS_2", (char*)read_gpu_config((char*)"SP_THREADS_PER_BLOCK_ON_EXACT_RHS_2"));
+	put_def_variable(fp, (char*)"SP_THREADS_PER_BLOCK_ON_EXACT_RHS_3", (char*)read_gpu_config((char*)"SP_THREADS_PER_BLOCK_ON_EXACT_RHS_3"));
+	put_def_variable(fp, (char*)"SP_THREADS_PER_BLOCK_ON_EXACT_RHS_4", (char*)read_gpu_config((char*)"SP_THREADS_PER_BLOCK_ON_EXACT_RHS_4"));
+	put_def_variable(fp, (char*)"SP_THREADS_PER_BLOCK_ON_INITIALIZE", (char*)read_gpu_config((char*)"SP_THREADS_PER_BLOCK_ON_INITIALIZE"));
+	put_def_variable(fp, (char*)"SP_THREADS_PER_BLOCK_ON_RHS_NORM_1", (char*)read_gpu_config((char*)"SP_THREADS_PER_BLOCK_ON_RHS_NORM_1"));
+	put_def_variable(fp, (char*)"SP_THREADS_PER_BLOCK_ON_RHS_NORM_2", (char*)read_gpu_config((char*)"SP_THREADS_PER_BLOCK_ON_RHS_NORM_2"));
+	put_def_variable(fp, (char*)"SP_THREADS_PER_BLOCK_ON_TXINVR", (char*)read_gpu_config((char*)"SP_THREADS_PER_BLOCK_ON_TXINVR"));
+	put_def_variable(fp, (char*)"SP_THREADS_PER_BLOCK_ON_X_SOLVE", (char*)read_gpu_config((char*)"SP_THREADS_PER_BLOCK_ON_X_SOLVE"));
+	put_def_variable(fp, (char*)"SP_THREADS_PER_BLOCK_ON_Y_SOLVE", (char*)read_gpu_config((char*)"SP_THREADS_PER_BLOCK_ON_Y_SOLVE"));
+	put_def_variable(fp, (char*)"SP_THREADS_PER_BLOCK_ON_Z_SOLVE", (char*)read_gpu_config((char*)"SP_THREADS_PER_BLOCK_ON_Z_SOLVE"));
+
+	/* no gpu config*/
+	put_def_variable(fp, (char*)"NO_GPU_CONFIG", (char*)NO_CONFIG);
+}
+
 /*
  * get_info(): get parameters from command line 
  */
@@ -211,12 +438,12 @@ void check_info(int type, char class_npb){
 	int tmplog; 
 	/* check class_npb */
 	if(class_npb != 'S' && 
-	   class_npb != 'W' && 
-	   class_npb != 'A' && 
-	   class_npb != 'B' && 
-	   class_npb != 'C' && 
-	   class_npb != 'D' &&
-	   class_npb != 'E'){
+			class_npb != 'W' && 
+			class_npb != 'A' && 
+			class_npb != 'B' && 
+			class_npb != 'C' && 
+			class_npb != 'D' &&
+			class_npb != 'E'){
 		printf("setparams: Unknown benchmark class_npb %c\n", class_npb); 
 		printf("setparams: Allowed classes are \"S\", \"W\", \"A\", \"B\", \"C\", \"D\" and \"E\"\n");
 		exit(1);
@@ -303,12 +530,12 @@ void write_info(int type, char class_npb){
 
 	switch(type){
 		case SP:
-      	case BT:
-      	case FT:
-      	case MG:
-      	case LU:
-      	case EP:
-      	case CG:
+		case BT:
+		case FT:
+		case MG:
+		case LU:
+		case EP:
+		case CG:
 			/* write out the header */
 			fprintf(fp, DESC_LINE, class_npb);
 			/* print out a warning so bozos don't mess with the file */
@@ -338,8 +565,8 @@ void write_info(int type, char class_npb){
 	/* now do benchmark-specific stuff */
 	switch(type){   
 		case BT:	      
-   			 write_bt_info(fp, class_npb);
-    		break;	
+			write_bt_info(fp, class_npb);
+			break;	
 		case CG:	      
 			write_cg_info(fp, class_npb);
 			break;
@@ -353,20 +580,22 @@ void write_info(int type, char class_npb){
 			write_is_info(fp, class_npb);  
 			break;
 		case LU:	      
-    		write_lu_info(fp, class_npb);
-    		break;	 
+			write_lu_info(fp, class_npb);
+			break;	 
 		case MG:	      
 			write_mg_info(fp, class_npb);
 			break;	   
 		case SP:
-    		write_sp_info(fp, class_npb);
-    		break;		
+			write_sp_info(fp, class_npb);
+			break;		
 		default:
 			printf("setparams: (Internal error): Unknown benchmark type %d\n", type);
 			exit(1);
 	}
 	write_convertdouble_info(type, fp);
 	write_compiler_info(type, fp);
+	write_gpu_config(fp);
+	profiling_flag(fp);
 	fclose(fp);
 	return;
 }
@@ -383,7 +612,7 @@ void write_sp_info(FILE *fp, char class_npb){
 	else if(class_npb == 'B'){problem_size = 102; dt = "0.001"; niter = 400;}
 	else if(class_npb == 'C'){problem_size = 162; dt = "0.00067"; niter = 400;}
 	else if(class_npb == 'D'){problem_size = 408; dt = "0.00030"; niter = 500;}
-  	else if(class_npb == 'E'){problem_size = 1020; dt = "0.0001"; niter = 500;}
+	else if(class_npb == 'E'){problem_size = 1020; dt = "0.0001"; niter = 500;}
 	else{
 		printf("setparams: Internal error: invalid class_npb %c\n", class_npb);
 		exit(1);
@@ -405,7 +634,7 @@ void write_bt_info(FILE *fp, char class_npb){
 	else if(class_npb == 'B'){problem_size = 102; dt = "0.0003"; niter = 200;}
 	else if(class_npb == 'C'){problem_size = 162; dt = "0.0001"; niter = 200;}
 	else if(class_npb == 'D'){problem_size = 408; dt = "0.00002"; niter = 250;}
-  	else if(class_npb == 'E'){problem_size = 1020; dt = "0.4e-5"; niter = 250;}
+	else if(class_npb == 'E'){problem_size = 1020; dt = "0.4e-5"; niter = 250;}
 	else{
 		printf("setparams: Internal error: invalid class_npb %c\n", class_npb);
 		exit(1);
@@ -444,7 +673,7 @@ void write_lu_info(FILE *fp, char class_npb){
 	else if(class_npb == 'B'){problem_size = 102; dt_default = "2.0"; itmax = 250;}
 	else if(class_npb == 'C'){problem_size = 162; dt_default = "2.0"; itmax = 250;}
 	else if(class_npb == 'D'){problem_size = 408; dt_default = "1.0"; itmax = 300;}
-  	else if(class_npb == 'E'){problem_size = 1020; dt_default = "0.5"; itmax = 300;}
+	else if(class_npb == 'E'){problem_size = 1020; dt_default = "0.5"; itmax = 300;}
 	else{
 		printf("setparams: Internal error: invalid class_npb %c\n", class_npb);
 		exit(1);
@@ -506,11 +735,11 @@ void write_mg_info(FILE *fp, char class_npb)
  */
 void write_is_info(FILE *fp, char class_npb){
 	if(class_npb != 'S' &&
-	   class_npb != 'W' &&
-	   class_npb != 'A' &&
-	   class_npb != 'B' &&
-	   class_npb != 'C' &&
-	   class_npb != 'D'){
+			class_npb != 'W' &&
+			class_npb != 'A' &&
+			class_npb != 'B' &&
+			class_npb != 'C' &&
+			class_npb != 'D'){
 		printf("setparams: Internal error: invalid class_npb type %c\n", class_npb);
 		exit(1);
 	}
@@ -549,10 +778,10 @@ void write_cg_info(FILE *fp, char class_npb){
 		exit(1);
 	}
 	fprintf( fp, "#define NA     %d\n", na );
-  	fprintf( fp, "#define NONZER %d\n", nonzer );
-  	fprintf( fp, "#define NITER  %d\n", niter );
-  	fprintf( fp, "#define SHIFT  %s\n", shift );
-  	fprintf( fp, "#define RCOND  %s\n", rcond );
+	fprintf( fp, "#define NONZER %d\n", nonzer );
+	fprintf( fp, "#define NITER  %d\n", niter );
+	fprintf( fp, "#define SHIFT  %s\n", shift );
+	fprintf( fp, "#define RCOND  %s\n", rcond );
 }
 
 /* 
@@ -684,25 +913,30 @@ void write_compiler_info(int type, FILE *fp){
 	(void) time(&t);
 	tmp = localtime(&t);
 	(void) strftime(compiletime, (size_t)LL, "%d %b %Y", tmp);
+	char tmp2[10];
+	sprintf(tmp2, "%d.%d.%d", __GNUG__,__GNUC_MINOR__,__GNUC_PATCHLEVEL__);
 
 	switch(type){
 		case FT:
-      	case SP:
-      	case BT:
-      	case MG:
-      	case LU:
-      	case EP:
-      	case CG:
-      	case IS:
-			put_def_string(fp, (char*)"COMPILETIME", compiletime);
+		case SP:
+		case BT:
+		case MG:
+		case LU:
+		case EP:
+		case CG:
+		case IS:
+			put_def_string(fp, (char*)"COMPILETIME", (char*)compiletime);
 			put_def_string(fp, (char*)"NPBVERSION", (char*)VERSION);
-			put_def_string(fp, (char*)"CS1", cc);
-			put_def_string(fp, (char*)"CS2", clink);
-			put_def_string(fp, (char*)"CS3", c_lib);
-			put_def_string(fp, (char*)"CS4", c_inc);
-			put_def_string(fp, (char*)"CS5", cflags);
-			put_def_string(fp, (char*)"CS6", clinkflags);
-			put_def_string(fp, (char*)"CS7", randfile);
+			put_def_string(fp, (char*)"LIBVERSION", (char*)read_nvcc_cuda_version());
+			put_def_string(fp, (char*)"COMPILERVERSION", (char*)read_nvcc_cuda_version());
+			put_def_string(fp, (char*)"CPU_MODEL", (char*)cpu_model());
+			put_def_string(fp, (char*)"CS1", (char*)cc);
+			put_def_string(fp, (char*)"CS2", (char*)clink);
+			put_def_string(fp, (char*)"CS3", (char*)c_lib);
+			put_def_string(fp, (char*)"CS4", (char*)c_inc);
+			put_def_string(fp, (char*)"CS5", (char*)cflags);
+			put_def_string(fp, (char*)"CS6", (char*)clinkflags);
+			put_def_string(fp, (char*)"CS7", (char*)randfile);
 			break;
 		default:
 			printf("setparams: (Internal error): Unknown benchmark type %d\n", 
@@ -858,12 +1092,12 @@ int ilog2(int i){
 void write_convertdouble_info(int type, FILE *fp){
 	switch(type){
 		case SP:
-  		case BT:
-  		case LU:
-  		case FT:
-  		case MG:
-  		case EP:
-  		case CG:
+		case BT:
+		case LU:
+		case FT:
+		case MG:
+		case EP:
+		case CG:
 #ifdef CONVERTDOUBLE
 			fprintf(fp, "#define\tCONVERTDOUBLE\tTRUE\n");
 #else

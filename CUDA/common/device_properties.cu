@@ -45,52 +45,29 @@
  * ------------------------------------------------------------------------------
  */
 
-#include "wtime.hpp"
-#include <cstdlib>
 #include <cuda.h>
+#include <stdio.h>
+#include <stdlib.h>
 
-/*  prototype  */
-void wtime(double*);
+#define DEVICE_NAME_INFO 0
+#define WARP_SIZE_INFO 1
+#define THREADS_PER_BLOCK_INFO 2
 
-/*****************************************************************/
-/******         E  L  A  P  S  E  D  _  T  I  M  E          ******/
-/*****************************************************************/
-double elapsed_time(void){
-	double t;
-	wtime(&t);
-	return(t);
-}
+int main(int argc, char** argv){
+    int gpu_device_id = atoi(argv[1]);
+    int functionality = atoi(argv[2]);
 
-double start[64], elapsed[64];
+    cudaDeviceProp gpu_device_properties;
+    cudaSetDevice(gpu_device_id);	
+    cudaGetDeviceProperties(&gpu_device_properties, gpu_device_id);
+    
+    if(functionality==DEVICE_NAME_INFO){
+        printf("%s\n", gpu_device_properties.name);
+    } else if(functionality==WARP_SIZE_INFO){
+        printf("%d\n", gpu_device_properties.warpSize);
+    }else if(functionality==THREADS_PER_BLOCK_INFO){
+        printf("%d\n", gpu_device_properties.maxThreadsPerBlock);
+    }
 
-/*****************************************************************/
-/******            T  I  M  E  R  _  C  L  E  A  R          ******/
-/*****************************************************************/
-void timer_clear(int n){
-	elapsed[n] = 0.0;
-}
-
-/*****************************************************************/
-/******            T  I  M  E  R  _  S  T  A  R  T          ******/
-/*****************************************************************/
-void timer_start(int n){
-	start[n] = elapsed_time();
-}
-
-/*****************************************************************/
-/******            T  I  M  E  R  _  S  T  O  P             ******/
-/*****************************************************************/
-void timer_stop(int n){
-	cudaDeviceSynchronize();
-	double t, now;
-	now = elapsed_time();
-	t = now - start[n];
-	elapsed[n] += t;
-}
-
-/*****************************************************************/
-/******            T  I  M  E  R  _  R  E  A  D             ******/
-/*****************************************************************/
-double timer_read(int n){
-	return(elapsed[n]);
+    return 0;
 }

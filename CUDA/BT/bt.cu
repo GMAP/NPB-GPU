@@ -103,36 +103,6 @@
 #define PROFILING_INITIALIZE (26)
 #define PROFILING_RHS_NORM_1 (27)
 #define PROFILING_RHS_NORM_2 (28)
-/* new */
-#define THREADS_PER_BLOCK_ON_ADD (32)
-#define THREADS_PER_BLOCK_ON_RHS_1 (32)
-#define THREADS_PER_BLOCK_ON_RHS_2 (32)
-#define THREADS_PER_BLOCK_ON_RHS_3 (32)
-#define THREADS_PER_BLOCK_ON_RHS_4 (32)
-#define THREADS_PER_BLOCK_ON_RHS_5 (32)
-#define THREADS_PER_BLOCK_ON_RHS_6 (32)
-#define THREADS_PER_BLOCK_ON_RHS_7 (32)
-#define THREADS_PER_BLOCK_ON_RHS_8 (32)
-#define THREADS_PER_BLOCK_ON_RHS_9 (32)
-#define THREADS_PER_BLOCK_ON_X_SOLVE_1 (32)
-#define THREADS_PER_BLOCK_ON_X_SOLVE_2 (32)
-#define THREADS_PER_BLOCK_ON_X_SOLVE_3 (32)
-#define THREADS_PER_BLOCK_ON_Y_SOLVE_1 (32)
-#define THREADS_PER_BLOCK_ON_Y_SOLVE_2 (32)
-#define THREADS_PER_BLOCK_ON_Y_SOLVE_3 (32)
-#define THREADS_PER_BLOCK_ON_Z_SOLVE_1 (32)
-#define THREADS_PER_BLOCK_ON_Z_SOLVE_2 (32)
-#define THREADS_PER_BLOCK_ON_Z_SOLVE_3 (32)
-/* old */
-#define THREADS_PER_BLOCK_ON_EXACT_RHS_1 (32)
-#define THREADS_PER_BLOCK_ON_EXACT_RHS_2 (32)
-#define THREADS_PER_BLOCK_ON_EXACT_RHS_3 (32)
-#define THREADS_PER_BLOCK_ON_EXACT_RHS_4 (32)
-#define THREADS_PER_BLOCK_ON_ERROR_NORM_1 (32)
-#define THREADS_PER_BLOCK_ON_ERROR_NORM_2 (32)
-#define THREADS_PER_BLOCK_ON_INITIALIZE (32)
-#define THREADS_PER_BLOCK_ON_RHS_NORM_1 (32)
-#define THREADS_PER_BLOCK_ON_RHS_NORM_2 (32)
 
 /* global variables */
 #if defined(DO_NOT_ALLOCATE_ARRAYS_WITH_DYNAMIC_MEMORY_AND_AS_SINGLE_DIMENSION)
@@ -192,6 +162,36 @@ static size_t size_rhs;
 static size_t size_qs;
 static size_t size_square;
 static size_t size_rho_i;
+/* new */
+static int THREADS_PER_BLOCK_ON_ADD;
+static int THREADS_PER_BLOCK_ON_RHS_1;
+static int THREADS_PER_BLOCK_ON_RHS_2;
+static int THREADS_PER_BLOCK_ON_RHS_3;
+static int THREADS_PER_BLOCK_ON_RHS_4;
+static int THREADS_PER_BLOCK_ON_RHS_5;
+static int THREADS_PER_BLOCK_ON_RHS_6;
+static int THREADS_PER_BLOCK_ON_RHS_7;
+static int THREADS_PER_BLOCK_ON_RHS_8;
+static int THREADS_PER_BLOCK_ON_RHS_9;
+static int THREADS_PER_BLOCK_ON_X_SOLVE_1;
+static int THREADS_PER_BLOCK_ON_X_SOLVE_2;
+static int THREADS_PER_BLOCK_ON_X_SOLVE_3;
+static int THREADS_PER_BLOCK_ON_Y_SOLVE_1;
+static int THREADS_PER_BLOCK_ON_Y_SOLVE_2;
+static int THREADS_PER_BLOCK_ON_Y_SOLVE_3;
+static int THREADS_PER_BLOCK_ON_Z_SOLVE_1;
+static int THREADS_PER_BLOCK_ON_Z_SOLVE_2;
+static int THREADS_PER_BLOCK_ON_Z_SOLVE_3;
+/* old */
+static int THREADS_PER_BLOCK_ON_EXACT_RHS_1;
+static int THREADS_PER_BLOCK_ON_EXACT_RHS_2;
+static int THREADS_PER_BLOCK_ON_EXACT_RHS_3;
+static int THREADS_PER_BLOCK_ON_EXACT_RHS_4;
+static int THREADS_PER_BLOCK_ON_ERROR_NORM_1;
+static int THREADS_PER_BLOCK_ON_ERROR_NORM_2;
+static int THREADS_PER_BLOCK_ON_INITIALIZE;
+static int THREADS_PER_BLOCK_ON_RHS_NORM_1;
+static int THREADS_PER_BLOCK_ON_RHS_NORM_2;
 int gpu_device_id;
 int total_devices;
 cudaDeviceProp gpu_device_properties;
@@ -465,17 +465,17 @@ int main(int argc, char* argv[]){
 	cudaMemcpy(u_device, u, size_u, cudaMemcpyHostToDevice);
 	cudaMemcpy(forcing_device, forcing, size_forcing, cudaMemcpyHostToDevice);
 
-	timer_clear(0);
+	timer_clear();
 
-	timer_start(0);
+	timer_start();
 
 	for(step=1; step<=niter; step++){
 		if((step%20)==0||step==1){printf(" Time step %4d\n",step);}
 		adi_gpu();
 	}
 
-	timer_stop(0);
-	tmax = timer_read(0);
+	timer_stop();
+	tmax = timer_read();
 
 	cudaMemcpy(rhs, rhs_device, size_rhs, cudaMemcpyDeviceToHost);
 	cudaMemcpy(u, u_device, size_u, cudaMemcpyDeviceToHost);
@@ -625,6 +625,11 @@ int main(int argc, char* argv[]){
 			verified,
 			(char*)NPBVERSION,
 			(char*)COMPILETIME,
+			(char*)COMPILERVERSION,
+			(char*)LIBVERSION,
+			(char*)CPU_MODEL,
+			(char*)gpu_device_properties.name,
+			gpu_config_string,
 			(char*)CS1,
 			(char*)CS2,
 			(char*)CS3,
@@ -2422,11 +2427,215 @@ static void setup_gpu(){
 		printf("\n\n\nNo Nvidia GPU found!\n\n\n");
 		exit(-1);
 	}
+	else if((GPU_DEVICE>=0)&&
+			(GPU_DEVICE<total_devices)){
+		gpu_device_id = GPU_DEVICE;
+	}
 	else{
 		gpu_device_id = 0;
 	}
 	cudaSetDevice(gpu_device_id);	
 	cudaGetDeviceProperties(&gpu_device_properties, gpu_device_id);
+
+	/* define threads_per_block */
+	/* new */
+	if((BT_THREADS_PER_BLOCK_ON_ADD>=1)&&
+			(BT_THREADS_PER_BLOCK_ON_ADD<=gpu_device_properties.maxThreadsPerBlock)){
+		THREADS_PER_BLOCK_ON_ADD = BT_THREADS_PER_BLOCK_ON_ADD;
+	}
+	else{
+		THREADS_PER_BLOCK_ON_ADD = gpu_device_properties.warpSize;
+	}
+	if((BT_THREADS_PER_BLOCK_ON_RHS_1>=1)&&
+			(BT_THREADS_PER_BLOCK_ON_RHS_1<=gpu_device_properties.maxThreadsPerBlock)){
+		THREADS_PER_BLOCK_ON_RHS_1 = BT_THREADS_PER_BLOCK_ON_RHS_1;
+	}
+	else{
+		THREADS_PER_BLOCK_ON_RHS_1 = gpu_device_properties.warpSize;
+	}
+	if((BT_THREADS_PER_BLOCK_ON_RHS_2>=1)&&
+			(BT_THREADS_PER_BLOCK_ON_RHS_2<=gpu_device_properties.maxThreadsPerBlock)){
+		THREADS_PER_BLOCK_ON_RHS_2 = BT_THREADS_PER_BLOCK_ON_RHS_2;
+	}
+	else{
+		THREADS_PER_BLOCK_ON_RHS_2 = gpu_device_properties.warpSize;
+	}
+	if((BT_THREADS_PER_BLOCK_ON_RHS_3>=1)&&
+			(BT_THREADS_PER_BLOCK_ON_RHS_3<=gpu_device_properties.maxThreadsPerBlock)){
+		THREADS_PER_BLOCK_ON_RHS_3 = BT_THREADS_PER_BLOCK_ON_RHS_3;
+	}
+	else{
+		THREADS_PER_BLOCK_ON_RHS_3 = gpu_device_properties.warpSize;
+	}
+	if((BT_THREADS_PER_BLOCK_ON_RHS_4>=1)&&
+			(BT_THREADS_PER_BLOCK_ON_RHS_4<=gpu_device_properties.maxThreadsPerBlock)){
+		THREADS_PER_BLOCK_ON_RHS_4 = BT_THREADS_PER_BLOCK_ON_RHS_4;
+	}
+	else{
+		THREADS_PER_BLOCK_ON_RHS_4 = gpu_device_properties.warpSize;
+	}
+	if((BT_THREADS_PER_BLOCK_ON_RHS_5>=1)&&
+			(BT_THREADS_PER_BLOCK_ON_RHS_5<=gpu_device_properties.maxThreadsPerBlock)){
+		THREADS_PER_BLOCK_ON_RHS_5 = BT_THREADS_PER_BLOCK_ON_RHS_5;
+	}
+	else{
+		THREADS_PER_BLOCK_ON_RHS_5 = gpu_device_properties.warpSize;
+	}
+	if((BT_THREADS_PER_BLOCK_ON_RHS_6>=1)&&
+			(BT_THREADS_PER_BLOCK_ON_RHS_6<=gpu_device_properties.maxThreadsPerBlock)){
+		THREADS_PER_BLOCK_ON_RHS_6 = BT_THREADS_PER_BLOCK_ON_RHS_6;
+	}
+	else{
+		THREADS_PER_BLOCK_ON_RHS_6 = gpu_device_properties.warpSize;
+	}
+	if((BT_THREADS_PER_BLOCK_ON_RHS_7>=1)&&
+			(BT_THREADS_PER_BLOCK_ON_RHS_7<=gpu_device_properties.maxThreadsPerBlock)){
+		THREADS_PER_BLOCK_ON_RHS_7 = BT_THREADS_PER_BLOCK_ON_RHS_7;
+	}
+	else{
+		THREADS_PER_BLOCK_ON_RHS_7 = gpu_device_properties.warpSize;
+	}
+	if((BT_THREADS_PER_BLOCK_ON_RHS_8>=1)&&
+			(BT_THREADS_PER_BLOCK_ON_RHS_8<=gpu_device_properties.maxThreadsPerBlock)){
+		THREADS_PER_BLOCK_ON_RHS_8 = BT_THREADS_PER_BLOCK_ON_RHS_8;
+	}
+	else{
+		THREADS_PER_BLOCK_ON_RHS_8 = gpu_device_properties.warpSize;
+	}
+	if((BT_THREADS_PER_BLOCK_ON_RHS_9>=1)&&
+			(BT_THREADS_PER_BLOCK_ON_RHS_9<=gpu_device_properties.maxThreadsPerBlock)){
+		THREADS_PER_BLOCK_ON_RHS_9 = BT_THREADS_PER_BLOCK_ON_RHS_9;
+	}
+	else{
+		THREADS_PER_BLOCK_ON_RHS_9 = gpu_device_properties.warpSize;
+	}
+	if((BT_THREADS_PER_BLOCK_ON_X_SOLVE_1>=1)&&
+			(BT_THREADS_PER_BLOCK_ON_X_SOLVE_1<=gpu_device_properties.maxThreadsPerBlock)){
+		THREADS_PER_BLOCK_ON_X_SOLVE_1 = BT_THREADS_PER_BLOCK_ON_X_SOLVE_1;
+	}
+	else{
+		THREADS_PER_BLOCK_ON_X_SOLVE_1 = gpu_device_properties.warpSize;
+	}
+	if((BT_THREADS_PER_BLOCK_ON_X_SOLVE_2>=1)&&
+			(BT_THREADS_PER_BLOCK_ON_X_SOLVE_2<=gpu_device_properties.maxThreadsPerBlock)){
+		THREADS_PER_BLOCK_ON_X_SOLVE_2 = BT_THREADS_PER_BLOCK_ON_X_SOLVE_2;
+	}
+	else{
+		THREADS_PER_BLOCK_ON_X_SOLVE_2 = gpu_device_properties.warpSize;
+	}
+	if((BT_THREADS_PER_BLOCK_ON_X_SOLVE_3>=1)&&
+			(BT_THREADS_PER_BLOCK_ON_X_SOLVE_3<=gpu_device_properties.maxThreadsPerBlock)){
+		THREADS_PER_BLOCK_ON_X_SOLVE_3 = BT_THREADS_PER_BLOCK_ON_X_SOLVE_3;
+	}
+	else{
+		THREADS_PER_BLOCK_ON_X_SOLVE_3 = gpu_device_properties.warpSize;
+	}
+	if((BT_THREADS_PER_BLOCK_ON_Y_SOLVE_1>=1)&&
+			(BT_THREADS_PER_BLOCK_ON_Y_SOLVE_1<=gpu_device_properties.maxThreadsPerBlock)){
+		THREADS_PER_BLOCK_ON_Y_SOLVE_1 = BT_THREADS_PER_BLOCK_ON_Y_SOLVE_1;
+	}
+	else{
+		THREADS_PER_BLOCK_ON_Y_SOLVE_1 = gpu_device_properties.warpSize;
+	}
+	if((BT_THREADS_PER_BLOCK_ON_Y_SOLVE_2>=1)&&
+			(BT_THREADS_PER_BLOCK_ON_Y_SOLVE_2<=gpu_device_properties.maxThreadsPerBlock)){
+		THREADS_PER_BLOCK_ON_Y_SOLVE_2 = BT_THREADS_PER_BLOCK_ON_Y_SOLVE_2;
+	}
+	else{
+		THREADS_PER_BLOCK_ON_Y_SOLVE_2 = gpu_device_properties.warpSize;
+	}
+	if((BT_THREADS_PER_BLOCK_ON_Y_SOLVE_3>=1)&&
+			(BT_THREADS_PER_BLOCK_ON_Y_SOLVE_3<=gpu_device_properties.maxThreadsPerBlock)){
+		THREADS_PER_BLOCK_ON_Y_SOLVE_3 = BT_THREADS_PER_BLOCK_ON_Y_SOLVE_3;
+	}
+	else{
+		THREADS_PER_BLOCK_ON_Y_SOLVE_3 = gpu_device_properties.warpSize;
+	}
+	if((BT_THREADS_PER_BLOCK_ON_Z_SOLVE_1>=1)&&
+			(BT_THREADS_PER_BLOCK_ON_Z_SOLVE_1<=gpu_device_properties.maxThreadsPerBlock)){
+		THREADS_PER_BLOCK_ON_Z_SOLVE_1 = BT_THREADS_PER_BLOCK_ON_Z_SOLVE_1;
+	}
+	else{
+		THREADS_PER_BLOCK_ON_Z_SOLVE_1 = gpu_device_properties.warpSize;
+	}
+	if((BT_THREADS_PER_BLOCK_ON_Z_SOLVE_2>=1)&&
+			(BT_THREADS_PER_BLOCK_ON_Z_SOLVE_2<=gpu_device_properties.maxThreadsPerBlock)){
+		THREADS_PER_BLOCK_ON_Z_SOLVE_2 = BT_THREADS_PER_BLOCK_ON_Z_SOLVE_2;
+	}
+	else{
+		THREADS_PER_BLOCK_ON_Z_SOLVE_2 = gpu_device_properties.warpSize;
+	}
+	if((BT_THREADS_PER_BLOCK_ON_Z_SOLVE_3>=1)&&
+			(BT_THREADS_PER_BLOCK_ON_Z_SOLVE_3<=gpu_device_properties.maxThreadsPerBlock)){
+		THREADS_PER_BLOCK_ON_Z_SOLVE_3 = BT_THREADS_PER_BLOCK_ON_Z_SOLVE_3;
+	}
+	else{
+		THREADS_PER_BLOCK_ON_Z_SOLVE_3 = gpu_device_properties.warpSize;
+	}
+	/* old */
+	if((BT_THREADS_PER_BLOCK_ON_EXACT_RHS_1>=1)&&
+			(BT_THREADS_PER_BLOCK_ON_EXACT_RHS_1<=gpu_device_properties.maxThreadsPerBlock)){
+		THREADS_PER_BLOCK_ON_EXACT_RHS_1 = BT_THREADS_PER_BLOCK_ON_EXACT_RHS_1;
+	}
+	else{
+		THREADS_PER_BLOCK_ON_EXACT_RHS_1 = gpu_device_properties.warpSize;
+	}
+	if((BT_THREADS_PER_BLOCK_ON_EXACT_RHS_2>=1)&&
+			(BT_THREADS_PER_BLOCK_ON_EXACT_RHS_2<=gpu_device_properties.maxThreadsPerBlock)){
+		THREADS_PER_BLOCK_ON_EXACT_RHS_2 = BT_THREADS_PER_BLOCK_ON_EXACT_RHS_2;
+	}
+	else{
+		THREADS_PER_BLOCK_ON_EXACT_RHS_2 = gpu_device_properties.warpSize;
+	}	
+	if((BT_THREADS_PER_BLOCK_ON_EXACT_RHS_3>=1)&&
+			(BT_THREADS_PER_BLOCK_ON_EXACT_RHS_3<=gpu_device_properties.maxThreadsPerBlock)){
+		THREADS_PER_BLOCK_ON_EXACT_RHS_3 = BT_THREADS_PER_BLOCK_ON_EXACT_RHS_3;
+	}
+	else{
+		THREADS_PER_BLOCK_ON_EXACT_RHS_3 = gpu_device_properties.warpSize;
+	}
+	if((BT_THREADS_PER_BLOCK_ON_EXACT_RHS_4>=1)&&
+			(BT_THREADS_PER_BLOCK_ON_EXACT_RHS_4<=gpu_device_properties.maxThreadsPerBlock)){
+		THREADS_PER_BLOCK_ON_EXACT_RHS_4 = BT_THREADS_PER_BLOCK_ON_EXACT_RHS_4;
+	}
+	else{
+		THREADS_PER_BLOCK_ON_EXACT_RHS_4 = gpu_device_properties.warpSize;
+	}	
+	if((BT_THREADS_PER_BLOCK_ON_ERROR_NORM_1>=1)&&
+			(BT_THREADS_PER_BLOCK_ON_ERROR_NORM_1<=gpu_device_properties.maxThreadsPerBlock)){
+		THREADS_PER_BLOCK_ON_ERROR_NORM_1 = BT_THREADS_PER_BLOCK_ON_ERROR_NORM_1;
+	}
+	else{
+		THREADS_PER_BLOCK_ON_ERROR_NORM_1 = gpu_device_properties.warpSize;
+	}
+	if((BT_THREADS_PER_BLOCK_ON_ERROR_NORM_2>=1)&&
+			(BT_THREADS_PER_BLOCK_ON_ERROR_NORM_2<=gpu_device_properties.maxThreadsPerBlock)){
+		THREADS_PER_BLOCK_ON_ERROR_NORM_2 = BT_THREADS_PER_BLOCK_ON_ERROR_NORM_2;
+	}
+	else{
+		THREADS_PER_BLOCK_ON_ERROR_NORM_2=gpu_device_properties.warpSize;
+	}
+	if((BT_THREADS_PER_BLOCK_ON_INITIALIZE>=1)&&
+			(BT_THREADS_PER_BLOCK_ON_INITIALIZE<=gpu_device_properties.maxThreadsPerBlock)){
+		THREADS_PER_BLOCK_ON_INITIALIZE = BT_THREADS_PER_BLOCK_ON_INITIALIZE;
+	}
+	else{
+		THREADS_PER_BLOCK_ON_INITIALIZE=gpu_device_properties.warpSize;
+	}
+	if((BT_THREADS_PER_BLOCK_ON_RHS_NORM_1>=1)&&
+			(BT_THREADS_PER_BLOCK_ON_RHS_NORM_1<=gpu_device_properties.maxThreadsPerBlock)){
+		THREADS_PER_BLOCK_ON_RHS_NORM_1 = BT_THREADS_PER_BLOCK_ON_RHS_NORM_1;
+	}
+	else{
+		THREADS_PER_BLOCK_ON_RHS_NORM_1 = gpu_device_properties.warpSize;
+	}	
+	if((BT_THREADS_PER_BLOCK_ON_RHS_NORM_2>=1)&&
+			(BT_THREADS_PER_BLOCK_ON_RHS_NORM_2<=gpu_device_properties.maxThreadsPerBlock)){
+		THREADS_PER_BLOCK_ON_RHS_NORM_2 = BT_THREADS_PER_BLOCK_ON_RHS_NORM_2;
+	}
+	else{
+		THREADS_PER_BLOCK_ON_RHS_NORM_2 = gpu_device_properties.warpSize;
+	}	
 
 	size_u = sizeof(double)*KMAX*(JMAXP+1)*(IMAXP+1)*5;
 	size_forcing = sizeof(double)*KMAX*(JMAXP+1)*(IMAXP+1)*5;

@@ -119,30 +119,6 @@
 #define PROFILING_SSOR_1 (22)
 #define PROFILING_SSOR_2 (23)
 
-#define THREADS_PER_BLOCK_ON_ERHS_1 (32)
-#define THREADS_PER_BLOCK_ON_ERHS_2 (32)
-#define THREADS_PER_BLOCK_ON_ERHS_3 (32)
-#define THREADS_PER_BLOCK_ON_ERHS_4 (32)
-#define THREADS_PER_BLOCK_ON_ERROR (32)
-#define THREADS_PER_BLOCK_ON_NORM (32)
-#define THREADS_PER_BLOCK_ON_JACLD_BLTS (32)
-#define THREADS_PER_BLOCK_ON_JACU_BUTS (32)
-#define THREADS_PER_BLOCK_ON_L2NORM (32)
-#define THREADS_PER_BLOCK_ON_PINTGR_1 (64)
-#define THREADS_PER_BLOCK_ON_PINTGR_2 (64)
-#define THREADS_PER_BLOCK_ON_PINTGR_3 (64)
-#define THREADS_PER_BLOCK_ON_PINTGR_4 (64)
-#define THREADS_PER_BLOCK_ON_RHS_1 (32)
-#define THREADS_PER_BLOCK_ON_RHS_2 (32)
-#define THREADS_PER_BLOCK_ON_RHS_3 (32)
-#define THREADS_PER_BLOCK_ON_RHS_4 (32)
-#define THREADS_PER_BLOCK_ON_SETBV_1 (32)
-#define THREADS_PER_BLOCK_ON_SETBV_2 (32)
-#define THREADS_PER_BLOCK_ON_SETBV_3 (32)
-#define THREADS_PER_BLOCK_ON_SETIV (32)
-#define THREADS_PER_BLOCK_ON_SSOR_1 (32)
-#define THREADS_PER_BLOCK_ON_SSOR_2 (32)
-
 /* gpu linear pattern */
 #define u(m,i,j,k) u[(m)+5*((i)+nx*((j)+ny*(k)))]
 #define v(m,i,j,k) v[(m)+5*((i)+nx*((j)+ny*(k)))]
@@ -200,6 +176,29 @@ static size_t size_norm_buffer_device;
 static int nx;
 static int ny;
 static int nz;
+static int THREADS_PER_BLOCK_ON_ERHS_1;
+static int THREADS_PER_BLOCK_ON_ERHS_2;
+static int THREADS_PER_BLOCK_ON_ERHS_3;
+static int THREADS_PER_BLOCK_ON_ERHS_4;
+static int THREADS_PER_BLOCK_ON_ERROR;
+static int THREADS_PER_BLOCK_ON_NORM;
+static int THREADS_PER_BLOCK_ON_JACLD_BLTS;
+static int THREADS_PER_BLOCK_ON_JACU_BUTS;
+static int THREADS_PER_BLOCK_ON_L2NORM;
+static int THREADS_PER_BLOCK_ON_PINTGR_1;
+static int THREADS_PER_BLOCK_ON_PINTGR_2;
+static int THREADS_PER_BLOCK_ON_PINTGR_3;
+static int THREADS_PER_BLOCK_ON_PINTGR_4;
+static int THREADS_PER_BLOCK_ON_RHS_1;
+static int THREADS_PER_BLOCK_ON_RHS_2;
+static int THREADS_PER_BLOCK_ON_RHS_3;
+static int THREADS_PER_BLOCK_ON_RHS_4;
+static int THREADS_PER_BLOCK_ON_SETBV_1;
+static int THREADS_PER_BLOCK_ON_SETBV_2;
+static int THREADS_PER_BLOCK_ON_SETBV_3;
+static int THREADS_PER_BLOCK_ON_SETIV;
+static int THREADS_PER_BLOCK_ON_SSOR_1;
+static int THREADS_PER_BLOCK_ON_SSOR_2;
 int gpu_device_id;
 int total_devices;
 cudaDeviceProp gpu_device_properties;
@@ -573,6 +572,11 @@ int main(int argc, char** argv){
 			verified,
 			(char*)NPBVERSION,
 			(char*)COMPILETIME,
+			(char*)COMPILERVERSION,
+			(char*)LIBVERSION,
+			(char*)CPU_MODEL,
+			(char*)gpu_device_properties.name,
+			gpu_config_string,
 			(char*)CS1,
 			(char*)CS2,
 			(char*)CS3,
@@ -3003,11 +3007,177 @@ static void setup_gpu(){
 	if(total_devices==0){
 		printf("\n\n\nNo Nvidia GPU found!\n\n\n");
 		exit(-1);
+	}else if((GPU_DEVICE>=0)&&
+			(GPU_DEVICE<total_devices)){
+		gpu_device_id = GPU_DEVICE;
 	}else{
 		gpu_device_id = 0;
 	}
 	cudaSetDevice(gpu_device_id);	
 	cudaGetDeviceProperties(&gpu_device_properties, gpu_device_id);
+
+	/* define threads_per_block */
+	if((LU_THREADS_PER_BLOCK_ON_ERHS_1>=1)&&
+			(LU_THREADS_PER_BLOCK_ON_ERHS_1<=gpu_device_properties.maxThreadsPerBlock)){
+		THREADS_PER_BLOCK_ON_ERHS_1 = LU_THREADS_PER_BLOCK_ON_ERHS_1;
+	}
+	else{
+		THREADS_PER_BLOCK_ON_ERHS_1 = gpu_device_properties.warpSize;
+	}
+	if((LU_THREADS_PER_BLOCK_ON_ERHS_2>=1)&&
+			(LU_THREADS_PER_BLOCK_ON_ERHS_2<=gpu_device_properties.maxThreadsPerBlock)){
+		THREADS_PER_BLOCK_ON_ERHS_2 = LU_THREADS_PER_BLOCK_ON_ERHS_2;
+	}
+	else{
+		THREADS_PER_BLOCK_ON_ERHS_2 = gpu_device_properties.warpSize;
+	}
+	if((LU_THREADS_PER_BLOCK_ON_ERHS_3>=1)&&
+			(LU_THREADS_PER_BLOCK_ON_ERHS_3<=gpu_device_properties.maxThreadsPerBlock)){
+		THREADS_PER_BLOCK_ON_ERHS_3 = LU_THREADS_PER_BLOCK_ON_ERHS_3;
+	}
+	else{
+		THREADS_PER_BLOCK_ON_ERHS_3 = gpu_device_properties.warpSize;
+	}	
+	if((LU_THREADS_PER_BLOCK_ON_ERHS_4>=1)&&
+			(LU_THREADS_PER_BLOCK_ON_ERHS_4<=gpu_device_properties.maxThreadsPerBlock)){
+		THREADS_PER_BLOCK_ON_ERHS_4 = LU_THREADS_PER_BLOCK_ON_ERHS_4;
+	}
+	else{
+		THREADS_PER_BLOCK_ON_ERHS_4 = gpu_device_properties.warpSize;
+	}
+	if((LU_THREADS_PER_BLOCK_ON_ERROR>=1)&&
+			(LU_THREADS_PER_BLOCK_ON_ERROR<=gpu_device_properties.maxThreadsPerBlock)){
+		THREADS_PER_BLOCK_ON_ERROR = LU_THREADS_PER_BLOCK_ON_ERROR;
+	}
+	else{
+		THREADS_PER_BLOCK_ON_ERROR = gpu_device_properties.warpSize;
+	}
+	if((LU_THREADS_PER_BLOCK_ON_NORM>=1)&&
+			(LU_THREADS_PER_BLOCK_ON_NORM<=gpu_device_properties.maxThreadsPerBlock)){
+		THREADS_PER_BLOCK_ON_NORM = LU_THREADS_PER_BLOCK_ON_NORM;
+	}
+	else{
+		THREADS_PER_BLOCK_ON_NORM = gpu_device_properties.warpSize;
+	}
+	if((LU_THREADS_PER_BLOCK_ON_JACLD_BLTS>=1)&&
+			(LU_THREADS_PER_BLOCK_ON_JACLD_BLTS<=gpu_device_properties.maxThreadsPerBlock)){
+		THREADS_PER_BLOCK_ON_JACLD_BLTS = LU_THREADS_PER_BLOCK_ON_JACLD_BLTS;
+	}
+	else{
+		THREADS_PER_BLOCK_ON_JACLD_BLTS = gpu_device_properties.warpSize;
+	}
+	if((LU_THREADS_PER_BLOCK_ON_JACU_BUTS>=1)&&
+			(LU_THREADS_PER_BLOCK_ON_JACU_BUTS<=gpu_device_properties.maxThreadsPerBlock)){
+		THREADS_PER_BLOCK_ON_JACU_BUTS = LU_THREADS_PER_BLOCK_ON_JACU_BUTS;
+	}
+	else{
+		THREADS_PER_BLOCK_ON_JACU_BUTS = gpu_device_properties.warpSize;
+	}
+	if((LU_THREADS_PER_BLOCK_ON_L2NORM>=1)&&
+			(LU_THREADS_PER_BLOCK_ON_L2NORM<=gpu_device_properties.maxThreadsPerBlock)){
+		THREADS_PER_BLOCK_ON_L2NORM = LU_THREADS_PER_BLOCK_ON_L2NORM;
+	}
+	else{
+		THREADS_PER_BLOCK_ON_L2NORM=gpu_device_properties.warpSize;
+	}
+	if((LU_THREADS_PER_BLOCK_ON_PINTGR_1>=1)&&
+			(LU_THREADS_PER_BLOCK_ON_PINTGR_1<=gpu_device_properties.maxThreadsPerBlock)){
+		THREADS_PER_BLOCK_ON_PINTGR_1 = LU_THREADS_PER_BLOCK_ON_PINTGR_1;
+	}
+	else{
+		THREADS_PER_BLOCK_ON_PINTGR_1=gpu_device_properties.warpSize;
+	}
+	if((LU_THREADS_PER_BLOCK_ON_PINTGR_2>=1)&&
+			(LU_THREADS_PER_BLOCK_ON_PINTGR_2<=gpu_device_properties.maxThreadsPerBlock)){
+		THREADS_PER_BLOCK_ON_PINTGR_2 = LU_THREADS_PER_BLOCK_ON_PINTGR_2;
+	}
+	else{
+		THREADS_PER_BLOCK_ON_PINTGR_2 = gpu_device_properties.warpSize;
+	}	
+	if((LU_THREADS_PER_BLOCK_ON_PINTGR_3>=1)&&
+			(LU_THREADS_PER_BLOCK_ON_PINTGR_3<=gpu_device_properties.maxThreadsPerBlock)){
+		THREADS_PER_BLOCK_ON_PINTGR_3 = LU_THREADS_PER_BLOCK_ON_PINTGR_3;
+	}
+	else{
+		THREADS_PER_BLOCK_ON_PINTGR_3 = gpu_device_properties.warpSize;
+	}	
+	if((LU_THREADS_PER_BLOCK_ON_PINTGR_4>=1)&&
+			(LU_THREADS_PER_BLOCK_ON_PINTGR_4<=gpu_device_properties.maxThreadsPerBlock)){
+		THREADS_PER_BLOCK_ON_PINTGR_4 = LU_THREADS_PER_BLOCK_ON_PINTGR_4;
+	}
+	else{
+		THREADS_PER_BLOCK_ON_PINTGR_4 = gpu_device_properties.warpSize;
+	}	
+	if((LU_THREADS_PER_BLOCK_ON_RHS_1>=1)&&
+			(LU_THREADS_PER_BLOCK_ON_RHS_1<=gpu_device_properties.maxThreadsPerBlock)){
+		THREADS_PER_BLOCK_ON_RHS_1 = LU_THREADS_PER_BLOCK_ON_RHS_1;
+	}
+	else{
+		THREADS_PER_BLOCK_ON_RHS_1 = gpu_device_properties.warpSize;
+	}	
+	if((LU_THREADS_PER_BLOCK_ON_RHS_2>=1)&&
+			(LU_THREADS_PER_BLOCK_ON_RHS_2<=gpu_device_properties.maxThreadsPerBlock)){
+		THREADS_PER_BLOCK_ON_RHS_2 = LU_THREADS_PER_BLOCK_ON_RHS_2;
+	}
+	else{
+		THREADS_PER_BLOCK_ON_RHS_2 = gpu_device_properties.warpSize;
+	}	
+	if((LU_THREADS_PER_BLOCK_ON_RHS_3>=1)&&
+			(LU_THREADS_PER_BLOCK_ON_RHS_3<=gpu_device_properties.maxThreadsPerBlock)){
+		THREADS_PER_BLOCK_ON_RHS_3 = LU_THREADS_PER_BLOCK_ON_RHS_3;
+	}
+	else{
+		THREADS_PER_BLOCK_ON_RHS_3 = gpu_device_properties.warpSize;
+	}	
+	if((LU_THREADS_PER_BLOCK_ON_RHS_4>=1)&&
+			(LU_THREADS_PER_BLOCK_ON_RHS_4<=gpu_device_properties.maxThreadsPerBlock)){
+		THREADS_PER_BLOCK_ON_RHS_4 = LU_THREADS_PER_BLOCK_ON_RHS_4;
+	}
+	else{
+		THREADS_PER_BLOCK_ON_RHS_4 = gpu_device_properties.warpSize;
+	}	
+	if((LU_THREADS_PER_BLOCK_ON_SETBV_1>=1)&&
+			(LU_THREADS_PER_BLOCK_ON_SETBV_1<=gpu_device_properties.maxThreadsPerBlock)){
+		THREADS_PER_BLOCK_ON_SETBV_1 = LU_THREADS_PER_BLOCK_ON_SETBV_1;
+	}
+	else{
+		THREADS_PER_BLOCK_ON_SETBV_1 = gpu_device_properties.warpSize;
+	}
+	if((LU_THREADS_PER_BLOCK_ON_SETBV_2>=1)&&
+			(LU_THREADS_PER_BLOCK_ON_SETBV_2<=gpu_device_properties.maxThreadsPerBlock)){
+		THREADS_PER_BLOCK_ON_SETBV_2 = LU_THREADS_PER_BLOCK_ON_SETBV_2;
+	}
+	else{
+		THREADS_PER_BLOCK_ON_SETBV_2 = gpu_device_properties.warpSize;
+	}
+	if((LU_THREADS_PER_BLOCK_ON_SETBV_3>=1)&&
+			(LU_THREADS_PER_BLOCK_ON_SETBV_3<=gpu_device_properties.maxThreadsPerBlock)){
+		THREADS_PER_BLOCK_ON_SETBV_3 = LU_THREADS_PER_BLOCK_ON_SETBV_3;
+	}
+	else{
+		THREADS_PER_BLOCK_ON_SETBV_3 = gpu_device_properties.warpSize;
+	}
+	if((LU_THREADS_PER_BLOCK_ON_SETIV>=1)&&
+			(LU_THREADS_PER_BLOCK_ON_SETIV<=gpu_device_properties.maxThreadsPerBlock)){
+		THREADS_PER_BLOCK_ON_SETIV = LU_THREADS_PER_BLOCK_ON_SETIV;
+	}
+	else{
+		THREADS_PER_BLOCK_ON_SETIV = gpu_device_properties.warpSize;
+	}
+	if((LU_THREADS_PER_BLOCK_ON_SSOR_1>=1)&&
+			(LU_THREADS_PER_BLOCK_ON_SSOR_1<=gpu_device_properties.maxThreadsPerBlock)){
+		THREADS_PER_BLOCK_ON_SSOR_1 = LU_THREADS_PER_BLOCK_ON_SSOR_1;
+	}
+	else{
+		THREADS_PER_BLOCK_ON_SSOR_1 = gpu_device_properties.warpSize;
+	}
+	if((LU_THREADS_PER_BLOCK_ON_SSOR_2>=1)&&
+			(LU_THREADS_PER_BLOCK_ON_SSOR_2<=gpu_device_properties.maxThreadsPerBlock)){
+		THREADS_PER_BLOCK_ON_SSOR_2 = LU_THREADS_PER_BLOCK_ON_SSOR_2;
+	}
+	else{
+		THREADS_PER_BLOCK_ON_SSOR_2 = gpu_device_properties.warpSize;
+	}
 
 	int gridsize=nx*ny*nz;
 	int norm_buf_size=max(5*(ny-2)*(nz-2), ((nx-3)*(ny-3)+(nx-3)*(nz-3)+(ny-3)*(nz-3))/((gpu_device_properties.maxThreadsPerBlock-1)*(gpu_device_properties.maxThreadsPerBlock-1))+3);

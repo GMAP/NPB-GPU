@@ -36,8 +36,8 @@ ${COMMON}/c_print_results.o: ${COMMON}/c_print_results.cpp
 ${COMMON}/timers.o: ${COMMON}/timers.f
 	cd ${COMMON}; ${FCOMPILE} timers.f
 
-${COMMON}/c_timers.o: ${COMMON}/c_timers.cpp
-	cd ${COMMON}; ${CCOMPILE} c_timers.cpp
+${COMMON}/c_timers.o: ${COMMON}/c_timers.cu
+	cd ${COMMON}; ${CCOMPILE} c_timers.cu
 
 ${COMMON}/wtime.o: ${COMMON}/${WTIME}
 	cd ${COMMON}; ${CCOMPILE} ${MACHINE} ${COMMON}/${WTIME}

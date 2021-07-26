@@ -71,33 +71,35 @@
 #define	A (1220703125.0)
 #define	S (271828183.0)
 #define NK_PLUS ((2*NK)+1)
-#define THREADS_PER_BLOCK (64)
-#define COALESCED_COMPUTATION (2*THREADS_PER_BLOCK)
-#define SHARE_MEMORY_Q (NQ*THREADS_PER_BLOCK)
-#define SHARE_MEMORY_SX (THREADS_PER_BLOCK)
-#define SHARE_MEMORY_SY (THREADS_PER_BLOCK)
+#define RECOMPUTATION (128)
+#define PROFILING_TOTAL_TIME (0)
 
 /* global variables */
 #if defined(DO_NOT_ALLOCATE_ARRAYS_WITH_DYNAMIC_MEMORY_AND_AS_SINGLE_DIMENSION)
-/* static double x[NK_PLUS]; */
 static double q[NQ];
 #else
-/* static double (*x)=(double*)malloc(sizeof(double)*(NK_PLUS)); */
 static double (*q)=(double*)malloc(sizeof(double)*(NQ));
 #endif
 /* gpu variables */
+double* q_host;
 double* q_device;
+double* sx_host;
 double* sx_device;
+double* sy_host;
 double* sy_device;
-size_t size_q_device;
-size_t size_sx_device;
-size_t size_sy_device;
+int threads_per_block;
+int blocks_per_grid;
+size_t size_q;
+size_t size_sx;
+size_t size_sy;
+int gpu_device_id;
+int total_devices;
+cudaDeviceProp gpu_device_properties;
 
 /* function declarations */
 __global__ void gpu_kernel(double* q_device, 
 		double* sx_device, 
 		double* sy_device,
-		int k_offset,
 		double an);
 __device__ double randlc_device(double* x, 
 		double a);
@@ -106,27 +108,22 @@ static void setup_gpu();
 __device__ void vranlc_device(int n, 
 		double* x_seed, 
 		double a, 
-		double y[]);
+		double* y);
 
 /* ep */
 int main(int argc, char** argv){
 #if defined(DO_NOT_ALLOCATE_ARRAYS_WITH_DYNAMIC_MEMORY_AND_AS_SINGLE_DIMENSION)
 	printf(" DO_NOT_ALLOCATE_ARRAYS_WITH_DYNAMIC_MEMORY_AND_AS_SINGLE_DIMENSION mode on\n");
 #endif
+#if defined(PROFILING)
+	printf(" PROFILING mode on\n");
+#endif
 	double Mops, t1;
-	double sx, sy, tm, an, tt, gc;
+	double sx, sy, tm, an, gc;
 	double sx_verify_value, sy_verify_value, sx_err, sy_err;
-	int i, j, nit;
-	boolean verified, timers_enabled;
+	int i, j, nit, block;
+	boolean verified;
 	char size[16];
-
-	FILE* fp;
-	if((fp = fopen("timer.flag", "r"))==NULL){
-		timers_enabled = FALSE;
-	}else{
-		timers_enabled = TRUE;
-		fclose(fp);
-	}
 
 	/*
 	 * --------------------------------------------------------------------
@@ -143,14 +140,7 @@ int main(int argc, char** argv){
 	printf("\n\n NAS Parallel Benchmarks 4.1 CUDA C++ version - EP Benchmark\n\n");
 	printf(" Number of random numbers generated: %15s\n", size);
 
-	verified = FALSE;
-
-	setup_gpu();
-
-	timer_clear(0);
-	timer_clear(1);
-	timer_clear(2);
-	timer_start(0);
+	verified = FALSE;		
 
 	t1 = A;
 
@@ -159,7 +149,6 @@ int main(int argc, char** argv){
 	}
 
 	an = t1;
-	tt = S;
 	gc = 0.0;
 	sx = 0.0;
 	sy = 0.0;
@@ -168,33 +157,34 @@ int main(int argc, char** argv){
 		q[i] = 0.0;
 	}
 
-	gpu_kernel<<<ceil(double(NN)/double(THREADS_PER_BLOCK)), THREADS_PER_BLOCK>>>(q_device,
-			sx_device,
-			sy_device,
-			-1,
-			an);
+	setup_gpu();
 
-	double (*q_host)[NQ]=(double(*)[NQ])malloc(size_q_device);
-	double (*sx_host)=(double*)malloc(size_sx_device);
-	double (*sy_host)=(double*)malloc(size_sy_device);	
+	timer_clear(PROFILING_TOTAL_TIME);
+	timer_start(PROFILING_TOTAL_TIME);
 
-	cudaMemcpy(q_host, q_device, size_q_device, cudaMemcpyDeviceToHost);
-	cudaMemcpy(sx_host, sx_device, size_sx_device, cudaMemcpyDeviceToHost);
-	cudaMemcpy(sy_host, sy_device, size_sy_device, cudaMemcpyDeviceToHost);
+	gpu_kernel<<<blocks_per_grid, 
+		threads_per_block>>>(q_device,
+				sx_device,
+				sy_device,
+				an);
 
-	for(i=0; i<NN/THREADS_PER_BLOCK; i++){
-		for(j=0; j<NQ; j++){
-			q[j]=q[j]+q_host[i][j];
+	timer_stop(PROFILING_TOTAL_TIME);
+	tm = timer_read(PROFILING_TOTAL_TIME);		
+
+	cudaMemcpy(q_host, q_device, size_q, cudaMemcpyDeviceToHost);
+	cudaMemcpy(sx_host, sx_device, size_sx, cudaMemcpyDeviceToHost);
+	cudaMemcpy(sy_host, sy_device, size_sy, cudaMemcpyDeviceToHost);
+
+	for(block=0; block<blocks_per_grid; block++){
+		for(i=0; i<NQ; i++){
+			q[i]+=q_host[block*NQ+i];
 		}
-		sx+=sx_host[i];
-		sy+=sy_host[i];
+		sx+=sx_host[block];
+		sy+=sy_host[block];
 	}
 	for(i=0; i<NQ; i++){
 		gc+=q[i];
-	}
-
-	timer_stop(0);
-	tm = timer_read(0);
+	}				
 
 	nit = 0;
 	verified = TRUE;
@@ -235,9 +225,23 @@ int main(int argc, char** argv){
 	printf(" No. Gaussian Pairs = %15.0f\n", gc);
 	printf(" Sums = %25.15e %25.15e\n", sx, sy);
 	printf(" Counts: \n");
-	for(i=0; i<NQ-1; i++){
+	for(i=0; i<NQ; i++){
 		printf("%3d%15.0f\n", i, q[i]);
 	}
+
+	char gpu_config[256];
+	char gpu_config_string[2048];
+#if defined(PROFILING)
+	sprintf(gpu_config, "%5s\t%25s\t%25s\t%25s\n", "GPU Kernel", "Threads Per Block", "Time in Seconds", "Time in Percentage");
+	strcpy(gpu_config_string, gpu_config);
+	sprintf(gpu_config, "%29s\t%25d\t%25f\t%24.2f%%\n", " ep", threads_per_block, timer_read(PROFILING_TOTAL_TIME), (timer_read(PROFILING_TOTAL_TIME)*100/timer_read(PROFILING_TOTAL_TIME)));
+	strcat(gpu_config_string, gpu_config);
+#else
+	sprintf(gpu_config, "%5s\t%25s\n", "GPU Kernel", "Threads Per Block");
+	strcpy(gpu_config_string, gpu_config);
+	sprintf(gpu_config, "%29s\t%25d\n", " ep", threads_per_block);
+	strcat(gpu_config_string, gpu_config);
+#endif
 
 	c_print_results((char*)"EP",
 			CLASS,
@@ -251,23 +255,18 @@ int main(int argc, char** argv){
 			verified,
 			(char*)NPBVERSION,
 			(char*)COMPILETIME,
+			(char*)COMPILERVERSION,
+			(char*)LIBVERSION,
+			(char*)CPU_MODEL,
+			(char*)gpu_device_properties.name,
+			gpu_config_string,
 			(char*)CS1,
 			(char*)CS2,
 			(char*)CS3,
 			(char*)CS4,
 			(char*)CS5,
 			(char*)CS6,
-			(char*)CS7);
-
-	if(timers_enabled){
-		if(tm <= 0.0){tm = 1.0;}
-		tt = timer_read(0);
-		printf("\nTotal time:     %9.3f (%6.2f)\n", tt, tt*100.0/tm);
-		tt = timer_read(1);
-		printf("Gaussian pairs: %9.3f (%6.2f)\n", tt, tt*100.0/tm);
-		tt = timer_read(2);
-		printf("Random numbers: %9.3f (%6.2f)\n", tt, tt*100.0/tm);
-	}
+			(char*)CS7);	
 
 	release_gpu();
 
@@ -277,25 +276,28 @@ int main(int argc, char** argv){
 __global__ void gpu_kernel(double* q_global, 
 		double* sx_global, 
 		double* sy_global,
-		int k_offset,
-		double an){
-	__shared__ double q_shared[SHARE_MEMORY_Q]; 
-	__shared__ double sx_shared[SHARE_MEMORY_SX];
-	__shared__ double sy_shared[SHARE_MEMORY_SY];
-	int    i, j, ii, ik, kk, l;
+		double an){	
+	double x_local[2*RECOMPUTATION];
+	double q_local[NQ]; 
+	double sx_local, sy_local;
 	double t1, t2, t3, t4, x1, x2, seed;
+	int i, ii, ik, kk, l;
 
-	double x[2*COALESCED_COMPUTATION];
+	q_local[0]=0.0;
+	q_local[1]=0.0;
+	q_local[2]=0.0;
+	q_local[3]=0.0;
+	q_local[4]=0.0;
+	q_local[5]=0.0;
+	q_local[6]=0.0;
+	q_local[7]=0.0;
+	q_local[8]=0.0;
+	q_local[9]=0.0;
+	sx_local=0.0;
+	sy_local=0.0;	
 
-	int k=blockIdx.x*blockDim.x+threadIdx.x;
+	kk=blockIdx.x*blockDim.x+threadIdx.x;
 
-	double sx_local = 0.0;
-	double sy_local = 0.0;
-	for(j=0; j<NQ; j++){
-		q_shared[j*blockDim.x + threadIdx.x] = 0.0;
-	}
-
-	kk=k_offset+k+1; 
 	t1=S;
 	t2=an;
 
@@ -308,62 +310,44 @@ __global__ void gpu_kernel(double* q_global,
 		kk=ik;
 	} 
 
-	seed=t1;	
-	for(ii=0; ii<NK; ii=ii+COALESCED_COMPUTATION){
+	seed=t1;
+	for(ii=0; ii<NK; ii=ii+RECOMPUTATION){
 		/* compute uniform pseudorandom numbers */
-		vranlc_device(2*COALESCED_COMPUTATION, &seed, A, x);
+		vranlc_device(2*RECOMPUTATION, &seed, A, x_local);
+
 		/*
 		 * compute gaussian deviates by acceptance-rejection method and
 		 * tally counts in concentric square annuli. this loop is not
 		 * vectorizable.
 		 */
-		for(i=0; i<COALESCED_COMPUTATION; i++){
-			x1=2.0*x[2*i]-1.0;
-			x2=2.0*x[2*i+1]-1.0;
+		for(i=0; i<RECOMPUTATION; i++){
+			x1=2.0*x_local[2*i]-1.0;
+			x2=2.0*x_local[2*i+1]-1.0;
 			t1=x1*x1+x2*x2;
 			if(t1<=1.0){
 				t2=sqrt(-2.0*log(t1)/t1);
 				t3=(x1*t2);
 				t4=(x2*t2);
 				l=max(fabs(t3), fabs(t4));
-				q_shared[l*blockDim.x+threadIdx.x]+=1.0;
+				q_local[l]+=1.0;
 				sx_local+=t3;
 				sy_local+=t4;
 			}
 		}
 	}
-	sx_shared[threadIdx.x]=sx_local;
-	sy_shared[threadIdx.x]=sy_local;
 
-	__syncthreads();
-
-	/* reduce on q_shared */
-	for(j=0; j<NQ; j++){
-		for(i=blockDim.x/2; i>0; i>>=1){
-			if(threadIdx.x<i){
-				q_shared[j*blockDim.x+threadIdx.x]+=q_shared[j*blockDim.x+threadIdx.x+i];	        
-			}
-			__syncthreads();
-		}
-	}
-
-	/* reduce on sx_shared and sx_shared */
-	for(i=blockDim.x/2; i>0; i>>=1){
-		if(threadIdx.x<i){
-			sx_shared[threadIdx.x]+=sx_shared[threadIdx.x+i];
-			sy_shared[threadIdx.x]+=sy_shared[threadIdx.x+i];
-		}
-		__syncthreads();
-	}
-
-	/* put the results on the global memory */
-	if(threadIdx.x==0){
-		for(j=0; j<NQ; j++){
-			q_global[blockIdx.x*NQ+j]=q_shared[j*blockDim.x];
-		}
-		sx_global[blockIdx.x]=sx_shared[0];
-		sy_global[blockIdx.x]=sy_shared[0];
-	}
+	atomicAdd(q_global+blockIdx.x*NQ+0, q_local[0]); 
+	atomicAdd(q_global+blockIdx.x*NQ+1, q_local[1]); 
+	atomicAdd(q_global+blockIdx.x*NQ+2, q_local[2]); 
+	atomicAdd(q_global+blockIdx.x*NQ+3, q_local[3]); 
+	atomicAdd(q_global+blockIdx.x*NQ+4, q_local[4]); 
+	atomicAdd(q_global+blockIdx.x*NQ+5, q_local[5]); 
+	atomicAdd(q_global+blockIdx.x*NQ+6, q_local[6]); 
+	atomicAdd(q_global+blockIdx.x*NQ+7, q_local[7]); 
+	atomicAdd(q_global+blockIdx.x*NQ+8, q_local[8]);
+	atomicAdd(q_global+blockIdx.x*NQ+9, q_local[9]); 
+	atomicAdd(sx_global+blockIdx.x, sx_local); 
+	atomicAdd(sy_global+blockIdx.x, sy_local);
 }
 
 __device__ double randlc_device(double* x, 
@@ -391,19 +375,82 @@ static void release_gpu(){
 }
 
 static void setup_gpu(){
-	size_q_device=NN/THREADS_PER_BLOCK*NQ*sizeof(double);
-	size_sx_device=NN/THREADS_PER_BLOCK*sizeof(double);
-	size_sy_device=NN/THREADS_PER_BLOCK*sizeof(double);
+	/*
+	 * struct cudaDeviceProp{
+	 *  char name[256];
+	 *  size_t totalGlobalMem;
+	 *  size_t sharedMemPerBlock;
+	 *  int regsPerBlock;
+	 *  int warpSize;
+	 *  size_t memPitch;
+	 *  int maxThreadsPerBlock;
+	 *  int maxThreadsDim[3];
+	 *  int maxGridSize[3];
+	 *  size_t totalConstMem;
+	 *  int major;
+	 *  int minor;
+	 *  int clockRate;
+	 *  size_t textureAlignment;
+	 *  int deviceOverlap;
+	 *  int multiProcessorCount;
+	 *  int kernelExecTimeoutEnabled;
+	 *  int integrated;
+	 *  int canMapHostMemory;
+	 *  int computeMode;
+	 *  int concurrentKernels;
+	 *  int ECCEnabled;
+	 *  int pciBusID;
+	 *  int pciDeviceID;
+	 *  int tccDriver;
+	 * }
+	 */
+	/* amount of available devices */ 
+	cudaGetDeviceCount(&total_devices);	
 
-	cudaMalloc(&q_device, size_q_device);
-	cudaMalloc(&sx_device, size_sx_device);
-	cudaMalloc(&sy_device, size_sy_device);
+	/* define gpu_device */
+	if(total_devices==0){
+		printf("\n\n\nNo Nvidia GPU found!\n\n\n");
+		exit(-1);
+	}else if((GPU_DEVICE>=0)&&
+			(GPU_DEVICE<total_devices)){
+		gpu_device_id = GPU_DEVICE;
+	}else{
+		gpu_device_id = 0;
+	}
+
+	int gpu_device_id = 0; 
+	cudaDeviceProp gpu_device_properties;
+
+	cudaSetDevice(gpu_device_id);	
+	cudaGetDeviceProperties(&gpu_device_properties, gpu_device_id);
+
+	/* define threads_per_block */
+	if((EP_THREADS_PER_BLOCK>=1)&&
+			(EP_THREADS_PER_BLOCK<=gpu_device_properties.maxThreadsPerBlock)){
+		threads_per_block = EP_THREADS_PER_BLOCK;
+	}else{
+		threads_per_block = gpu_device_properties.warpSize;
+	}	
+
+	blocks_per_grid = NN / threads_per_block;
+
+	size_q = blocks_per_grid * NQ * sizeof(double);
+	size_sx = blocks_per_grid * sizeof(double);
+	size_sy = blocks_per_grid * sizeof(double);
+
+	q_host=(double*)malloc(size_q);	
+	sx_host=(double*)malloc(size_sx);
+	sy_host=(double*)malloc(size_sy);
+
+	cudaMalloc(&q_device, size_q);
+	cudaMalloc(&sx_device, size_sx);
+	cudaMalloc(&sy_device, size_sy);
 }
 
 __device__ void vranlc_device(int n, 
 		double* x_seed, 
 		double a, 
-		double y[]){
+		double* y){
 	int i;
 	double x,t1,t2,t3,t4,a1,a2,x1,x2,z;
 	t1 = R23 * a;

@@ -104,10 +104,16 @@ static inline dcomplex dcomplex_div(dcomplex z1, dcomplex z2){
 
 extern double randlc(double*, double);
 extern void vranlc(int, double*, double, double*);
+
 extern void timer_clear(int);
 extern void timer_start(int);
 extern void timer_stop(int);
 extern double timer_read(int);
+
+extern void timer_clear();
+extern void timer_start();
+extern void timer_stop();
+extern double timer_read();
 
 extern void c_print_results(char* name,
 		char class_npb,
@@ -121,6 +127,11 @@ extern void c_print_results(char* name,
 		int passed_verification,
 		char* npbversion,
 		char* compiletime,
+		char* compilerversion,
+		char* libversion,
+		char* cpu_device,
+		char* gpu_device,
+		char* gpu_config,
 		char* cc,
 		char* clink,
 		char* c_lib,

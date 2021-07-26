@@ -69,12 +69,18 @@ double start[64], elapsed[64];
 void timer_clear(int n){
 	elapsed[n] = 0.0;
 }
+void timer_clear(){
+	elapsed[0] = 0.0;
+}
 
 /*****************************************************************/
 /******            T  I  M  E  R  _  S  T  A  R  T          ******/
 /*****************************************************************/
 void timer_start(int n){
 	start[n] = elapsed_time();
+}
+void timer_start(){
+	start[0] = elapsed_time();
 }
 
 /*****************************************************************/
@@ -87,10 +93,19 @@ void timer_stop(int n){
 	t = now - start[n];
 	elapsed[n] += t;
 }
+void timer_stop(){
+	double t, now;
+	now = elapsed_time();
+	t = now - start[0];
+	elapsed[0] += t;
+}
 
 /*****************************************************************/
 /******            T  I  M  E  R  _  R  E  A  D             ******/
 /*****************************************************************/
 double timer_read(int n){
 	return(elapsed[n]);
+}
+double timer_read(){
+	return(elapsed[0]);
 }
