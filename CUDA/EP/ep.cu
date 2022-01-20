@@ -298,6 +298,8 @@ __global__ void gpu_kernel(double* q_global,
 
 	kk=blockIdx.x*blockDim.x+threadIdx.x;
 
+	if(kk>=NN){return;}
+
 	t1=S;
 	t2=an;
 
@@ -418,9 +420,6 @@ static void setup_gpu(){
 		gpu_device_id = 0;
 	}
 
-	int gpu_device_id = 0; 
-	cudaDeviceProp gpu_device_properties;
-
 	cudaSetDevice(gpu_device_id);	
 	cudaGetDeviceProperties(&gpu_device_properties, gpu_device_id);
 
@@ -432,7 +431,7 @@ static void setup_gpu(){
 		threads_per_block = gpu_device_properties.warpSize;
 	}	
 
-	blocks_per_grid = NN / threads_per_block;
+	blocks_per_grid = (ceil((double)NN/(double)threads_per_block));
 
 	size_q = blocks_per_grid * NQ * sizeof(double);
 	size_sx = blocks_per_grid * sizeof(double);
