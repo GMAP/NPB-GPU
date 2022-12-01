@@ -155,20 +155,19 @@
 
 /*************************************/
 /* typedef: if necessary, change the */
-/* size of int here by changing the  */
-/* int type to, say, long            */
+/* size of INT_TYPE here by changing the  */
+/* INT_TYPE type to, say, long            */
 /*************************************/
 #if CLASS == 'D'
-/* #TODO *//* is necessary implement INT_TYPE for class D */
-/* typedef long INT_TYPE; */
+typedef long INT_TYPE;
 #else
-/* typedef int INT_TYPE; */
+typedef int INT_TYPE;
 #endif
 
 /**********************/
 /* partial verif info */
 /**********************/
-int test_index_array[TEST_ARRAY_SIZE],
+INT_TYPE test_index_array[TEST_ARRAY_SIZE],
     test_rank_array[TEST_ARRAY_SIZE],
 
     S_test_index_array[TEST_ARRAY_SIZE] = 
@@ -202,17 +201,16 @@ int test_index_array[TEST_ARRAY_SIZE],
 {1,36538729,1978098519,2145192618,2147425337};
 
 /* global variables */
-int passed_verification;
-int timer_on;
-int* key_array_device; 
-int* key_buff1_device; 
-int* key_buff2_device;
-int* index_array_device; 
-int* rank_array_device;
-int* partial_verify_vals_device;
-int* passed_verification_device;
-int* key_scan_device; 
-int* sum_device;
+INT_TYPE passed_verification;
+INT_TYPE* key_array_device; 
+INT_TYPE* key_buff1_device; 
+INT_TYPE* key_buff2_device;
+INT_TYPE* index_array_device; 
+INT_TYPE* rank_array_device;
+INT_TYPE* partial_verify_vals_device;
+INT_TYPE* passed_verification_device;
+INT_TYPE* key_scan_device; 
+INT_TYPE* sum_device;
 size_t size_test_array_device;
 size_t size_key_array_device; 
 size_t size_key_buff1_device; 
@@ -226,110 +224,110 @@ size_t size_sum_device;
 size_t size_shared_data_on_rank_4;
 size_t size_shared_data_on_rank_5;
 size_t size_shared_data_on_full_verify_3;
-int threads_per_block_on_create_seq;
-int threads_per_block_on_rank;
-int threads_per_block_on_rank_1;
-int threads_per_block_on_rank_2;
-int threads_per_block_on_rank_3;
-int threads_per_block_on_rank_4;
-int threads_per_block_on_rank_5;
-int threads_per_block_on_rank_6;
-int threads_per_block_on_rank_7;
-int threads_per_block_on_full_verify;
-int threads_per_block_on_full_verify_1;
-int threads_per_block_on_full_verify_2;
-int threads_per_block_on_full_verify_3;
-int blocks_per_grid_on_create_seq;
-int blocks_per_grid_on_rank_1;
-int blocks_per_grid_on_rank_2;
-int blocks_per_grid_on_rank_3;
-int blocks_per_grid_on_rank_4;
-int blocks_per_grid_on_rank_5;
-int blocks_per_grid_on_rank_6;
-int blocks_per_grid_on_rank_7;
-int blocks_per_grid_on_full_verify_1;
-int blocks_per_grid_on_full_verify_2;
-int blocks_per_grid_on_full_verify_3;
-int amount_of_work_on_create_seq;
-int amount_of_work_on_rank_1;
-int amount_of_work_on_rank_2;
-int amount_of_work_on_rank_3;
-int amount_of_work_on_rank_4;
-int amount_of_work_on_rank_5;
-int amount_of_work_on_rank_6;
-int amount_of_work_on_rank_7;
-int amount_of_work_on_full_verify_1;
-int amount_of_work_on_full_verify_2;
-int amount_of_work_on_full_verify_3;
+INT_TYPE threads_per_block_on_create_seq;
+INT_TYPE threads_per_block_on_rank;
+INT_TYPE threads_per_block_on_rank_1;
+INT_TYPE threads_per_block_on_rank_2;
+INT_TYPE threads_per_block_on_rank_3;
+INT_TYPE threads_per_block_on_rank_4;
+INT_TYPE threads_per_block_on_rank_5;
+INT_TYPE threads_per_block_on_rank_6;
+INT_TYPE threads_per_block_on_rank_7;
+INT_TYPE threads_per_block_on_full_verify;
+INT_TYPE threads_per_block_on_full_verify_1;
+INT_TYPE threads_per_block_on_full_verify_2;
+INT_TYPE threads_per_block_on_full_verify_3;
+INT_TYPE blocks_per_grid_on_create_seq;
+INT_TYPE blocks_per_grid_on_rank_1;
+INT_TYPE blocks_per_grid_on_rank_2;
+INT_TYPE blocks_per_grid_on_rank_3;
+INT_TYPE blocks_per_grid_on_rank_4;
+INT_TYPE blocks_per_grid_on_rank_5;
+INT_TYPE blocks_per_grid_on_rank_6;
+INT_TYPE blocks_per_grid_on_rank_7;
+INT_TYPE blocks_per_grid_on_full_verify_1;
+INT_TYPE blocks_per_grid_on_full_verify_2;
+INT_TYPE blocks_per_grid_on_full_verify_3;
+INT_TYPE amount_of_work_on_create_seq;
+INT_TYPE amount_of_work_on_rank_1;
+INT_TYPE amount_of_work_on_rank_2;
+INT_TYPE amount_of_work_on_rank_3;
+INT_TYPE amount_of_work_on_rank_4;
+INT_TYPE amount_of_work_on_rank_5;
+INT_TYPE amount_of_work_on_rank_6;
+INT_TYPE amount_of_work_on_rank_7;
+INT_TYPE amount_of_work_on_full_verify_1;
+INT_TYPE amount_of_work_on_full_verify_2;
+INT_TYPE amount_of_work_on_full_verify_3;
 int gpu_device_id;
 int total_devices;
 cudaDeviceProp gpu_device_properties;
-extern __shared__ int extern_share_data[];
+extern __shared__ INT_TYPE extern_share_data[];
 
 /* function declarations */
 static void create_seq_gpu(double seed, 
 		double a);
-__global__ void create_seq_gpu_kernel(int* key_array,
+__global__ void create_seq_gpu_kernel(INT_TYPE* key_array,
 		double seed,
 		double a,
-		int number_of_blocks,
-		int amount_of_work);
-__device__ double find_my_seed_device(int kn,
-		int np,
+		INT_TYPE number_of_blocks,
+		INT_TYPE amount_of_work);
+__device__ double find_my_seed_device(INT_TYPE kn,
+		INT_TYPE np,
 		long nn,
 		double s,
 		double a);
 static void full_verify_gpu();
-__global__ void full_verify_gpu_kernel_1(int* key_array,
-		int* key_buff2,
-		int number_of_blocks,
-		int amount_of_work);
-__global__ void full_verify_gpu_kernel_2(int* key_buff2,
-		int* key_buff_ptr_global,
-		int* key_array,
-		int number_of_blocks,
-		int amount_of_work);
-__global__ void full_verify_gpu_kernel_3(int* key_array,
-		int* global_aux,
-		int number_of_blocks,
-		int amount_of_work);
+__global__ void full_verify_gpu_kernel_1(INT_TYPE* key_array,
+		INT_TYPE* key_buff2,
+		INT_TYPE number_of_blocks,
+		INT_TYPE amount_of_work);
+__global__ void full_verify_gpu_kernel_2(INT_TYPE* key_buff2,
+		INT_TYPE* key_buff_ptr_global,
+		INT_TYPE* key_array,
+		INT_TYPE number_of_blocks,
+		INT_TYPE amount_of_work);
+__global__ void full_verify_gpu_kernel_3(INT_TYPE* key_array,
+		INT_TYPE* global_aux,
+		INT_TYPE number_of_blocks,
+		INT_TYPE amount_of_work);
 __device__ double randlc_device(double* X,
 		double* A);
-static void rank_gpu(int iteration);
-__global__ void rank_gpu_kernel_1(int* key_array,
-		int* partial_verify_vals,
-		int* test_index_array,
-		int iteration,
-		int number_of_blocks,
-		int amount_of_work);
-__global__ void rank_gpu_kernel_2(int* key_buff1,
-		int number_of_blocks,
-		int amount_of_work);
-__global__ void rank_gpu_kernel_3(int* key_buff_ptr,
-		int* key_buff_ptr2,
-		int number_of_blocks,
-		int amount_of_work);
-__global__ void rank_gpu_kernel_4(int* source,
-		int* destiny,
-		int* sum,
-		int number_of_blocks,
-		int amount_of_work);
-__global__ void rank_gpu_kernel_5(int* source,
-		int* destiny,
-		int number_of_blocks,
-		int amount_of_work);
-__global__ void rank_gpu_kernel_6(int* source,
-		int* destiny,
-		int* offset,
-		int number_of_blocks,
-		int amount_of_work);
-__global__ void rank_gpu_kernel_7(int* partial_verify_vals,
-		int* key_buff_ptr,
-		int* test_rank_array,
-		int* passed_verification_device,
-		int iteration,
-		int number_of_blocks,
-		int amount_of_work);
+static void rank_gpu(INT_TYPE iteration);
+__global__ void rank_gpu_kernel_1(INT_TYPE* key_array,
+		INT_TYPE* partial_verify_vals,
+		INT_TYPE* test_index_array,
+		INT_TYPE iteration,
+		INT_TYPE number_of_blocks,
+		INT_TYPE amount_of_work);
+__global__ void rank_gpu_kernel_2(INT_TYPE* key_buff1,
+		INT_TYPE number_of_blocks,
+		INT_TYPE amount_of_work);
+__global__ void rank_gpu_kernel_3(INT_TYPE* key_buff_ptr,
+		INT_TYPE* key_buff_ptr2,
+		INT_TYPE number_of_blocks,
+		INT_TYPE amount_of_work);
+__global__ void rank_gpu_kernel_4(INT_TYPE* source,
+		INT_TYPE* destiny,
+		INT_TYPE* sum,
+		INT_TYPE number_of_blocks,
+		INT_TYPE amount_of_work);
+__global__ void rank_gpu_kernel_5(INT_TYPE* source,
+		INT_TYPE* destiny,
+		INT_TYPE number_of_blocks,
+		INT_TYPE amount_of_work);
+__global__ void rank_gpu_kernel_6(INT_TYPE* source,
+		INT_TYPE* destiny,
+		INT_TYPE* offset,
+		INT_TYPE number_of_blocks,
+		INT_TYPE amount_of_work);
+__global__ void rank_gpu_kernel_7(INT_TYPE* partial_verify_vals,
+		INT_TYPE* key_buff_ptr,
+		INT_TYPE* test_rank_array,
+		INT_TYPE* passed_verification_device,
+		INT_TYPE iteration,
+		INT_TYPE number_of_blocks,
+		INT_TYPE amount_of_work);
 static void release_gpu();
 static void setup_gpu();
 
@@ -341,7 +339,7 @@ int main(int argc, char** argv){
 #if defined(PROFILING)
 	printf(" PROFILING mode on\n");
 #endif
-	int i, iteration;
+	INT_TYPE i, iteration;
 	double timecounter;
 
 	timer_clear(PROFILING_TOTAL_TIME);
@@ -422,7 +420,7 @@ int main(int argc, char** argv){
 #endif
 	/* this is the main iteration */
 	for(iteration=1; iteration<=MAX_ITERATIONS; iteration++){
-		if(CLASS != 'S')printf( "        %d\n", iteration);
+		if(CLASS != 'S')printf( "        %ld\n", (long)iteration);		
 		rank_gpu(iteration);
 	}
 #if defined(PROFILING)
@@ -454,23 +452,24 @@ int main(int argc, char** argv){
 
 	char gpu_config[256];
 	char gpu_config_string[2048];
+
 #if defined(PROFILING)
 	sprintf(gpu_config, "%5s\t%25s\t%25s\t%25s\n", "GPU Kernel", "Threads Per Block", "Time in Seconds", "Time in Percentage");
 	strcpy(gpu_config_string, gpu_config);
-	sprintf(gpu_config, "%29s\t%25d\t%25f\t%24.2f%%\n", " create", threads_per_block_on_create_seq, timer_read(PROFILING_CREATE), (timer_read(PROFILING_CREATE)*100/timer_read(PROFILING_TOTAL_TIME)));
+	sprintf(gpu_config, "%29s\t%25ld\t%25f\t%24.2f%%\n", " create", (long) threads_per_block_on_create_seq, timer_read(PROFILING_CREATE), (timer_read(PROFILING_CREATE)*100/timer_read(PROFILING_TOTAL_TIME)));
 	strcat(gpu_config_string, gpu_config);
-	sprintf(gpu_config, "%29s\t%25d\t%25f\t%24.2f%%\n", " rank", threads_per_block_on_rank, timer_read(PROFILING_RANK), (timer_read(PROFILING_RANK)*100/timer_read(PROFILING_TOTAL_TIME)));
+	sprintf(gpu_config, "%29s\t%25ld\t%25f\t%24.2f%%\n", " rank", (long) threads_per_block_on_rank, timer_read(PROFILING_RANK), (timer_read(PROFILING_RANK)*100/timer_read(PROFILING_TOTAL_TIME)));
 	strcat(gpu_config_string, gpu_config);
-	sprintf(gpu_config, "%29s\t%25d\t%25f\t%24.2f%%\n", " verify", threads_per_block_on_full_verify, timer_read(PROFILING_VERIFY), (timer_read(PROFILING_VERIFY)*100/timer_read(PROFILING_TOTAL_TIME)));
+	sprintf(gpu_config, "%29s\t%25ld\t%25f\t%24.2f%%\n", " verify", (long) threads_per_block_on_full_verify, timer_read(PROFILING_VERIFY), (timer_read(PROFILING_VERIFY)*100/timer_read(PROFILING_TOTAL_TIME)));
 	strcat(gpu_config_string, gpu_config);
 #else
 	sprintf(gpu_config, "%5s\t%25s\n", "GPU Kernel", "Threads Per Block");
 	strcpy(gpu_config_string, gpu_config);
-	sprintf(gpu_config, "%29s\t%25d\n", " create", threads_per_block_on_create_seq);
+	sprintf(gpu_config, "%29s\t%25ld\n", " create", (long) threads_per_block_on_create_seq);
 	strcat(gpu_config_string, gpu_config);
-	sprintf(gpu_config, "%29s\t%25d\n", " rank", threads_per_block_on_rank);
+	sprintf(gpu_config, "%29s\t%25ld\n", " rank", (long) threads_per_block_on_rank);
 	strcat(gpu_config_string, gpu_config);
-	sprintf(gpu_config, "%29s\t%25d\n", " verify", threads_per_block_on_full_verify);
+	sprintf(gpu_config, "%29s\t%25ld\n", " verify", (long) threads_per_block_on_full_verify);
 	strcat(gpu_config_string, gpu_config);
 #endif
 
@@ -485,7 +484,7 @@ int main(int argc, char** argv){
 			timecounter,
 			((double)(MAX_ITERATIONS*TOTAL_KEYS))/timecounter/1000000.0,
 			(char*)"keys ranked",
-			passed_verification,
+			(int)passed_verification,
 			(char*)NPBVERSION,
 			(char*)COMPILETIME,
 			(char*)COMPILERVERSION,
@@ -500,26 +499,6 @@ int main(int argc, char** argv){
 			(char*)CS5,
 			(char*)CS6,
 			(char*)CS7);
-
-	/* print additional timers */
-	/*
-	   if(timer_on){
-	   double t_total, t_percent;
-	   t_total = timer_read(TOTAL_EXECUTION);
-	   printf("\nAdditional timers -\n");
-	   printf(" Total execution: %8.3f\n", t_total);
-	   if(t_total == 0.0)t_total = 1.0;
-	   timecounter = timer_read(INITIALIZATION);
-	   t_percent = timecounter/t_total * 100.;
-	   printf(" Initialization : %8.3f (%5.2f%%)\n", timecounter, t_percent);
-	   timecounter = timer_read(BENCHMARKING);
-	   t_percent = timecounter/t_total * 100.;
-	   printf(" Benchmarking   : %8.3f (%5.2f%%)\n", timecounter, t_percent);
-	   timecounter = timer_read(SORTING);
-	   t_percent = timecounter/t_total * 100.;
-	   printf(" Sorting        : %8.3f (%5.2f%%)\n", timecounter, t_percent);
-	   }
-	 */
 
 	release_gpu();
 
@@ -536,18 +515,18 @@ static void create_seq_gpu(double seed, double a){
 	cudaDeviceSynchronize();
 }
 
-__global__ void create_seq_gpu_kernel(int* key_array,
+__global__ void create_seq_gpu_kernel(INT_TYPE* key_array,
 		double seed,
 		double a,
-		int number_of_blocks,
-		int amount_of_work){
+		INT_TYPE number_of_blocks,
+		INT_TYPE amount_of_work){
 	double x, s;
-	int i, k;
+	INT_TYPE i, k;
 
-	int k1, k2;
+	INT_TYPE k1, k2;
 	double an = a;
-	int myid, num_procs;
-	int mq;
+	INT_TYPE myid, num_procs;
+	INT_TYPE mq;
 
 	myid = blockIdx.x*blockDim.x+threadIdx.x;
 	num_procs = amount_of_work;
@@ -570,8 +549,8 @@ __global__ void create_seq_gpu_kernel(int* key_array,
 	}
 }
 
-__device__ double find_my_seed_device(int kn,
-		int np,
+__device__ double find_my_seed_device(INT_TYPE kn,
+		INT_TYPE np,
 		long nn,
 		double s,
 		double a){
@@ -602,8 +581,8 @@ __device__ double find_my_seed_device(int kn,
 }
 
 static void full_verify_gpu(){		
-	int* memory_aux_device;
-	size_t size_memory_aux=sizeof(int)*(amount_of_work_on_full_verify_3/threads_per_block_on_full_verify_3);		
+	INT_TYPE* memory_aux_device;
+	size_t size_memory_aux=sizeof(INT_TYPE)*(amount_of_work_on_full_verify_3/threads_per_block_on_full_verify_3);		
 	cudaMalloc(&memory_aux_device, size_memory_aux);	
 
 	/* full_verify_gpu_kernel_1 */
@@ -633,10 +612,10 @@ static void full_verify_gpu(){
 	cudaDeviceSynchronize();
 
 	/* reduce on cpu */
-	int i, j = 0;
-	int* memory_aux_host=(int*)malloc(size_memory_aux);
+	INT_TYPE i, j = 0;
+	INT_TYPE* memory_aux_host=(INT_TYPE*)malloc(size_memory_aux);
 	cudaMemcpy(memory_aux_host, memory_aux_device, size_memory_aux, cudaMemcpyDeviceToHost);
-	for(i=0; i<size_memory_aux/sizeof(int); i++){
+	for(i=0; i<size_memory_aux/sizeof(INT_TYPE); i++){
 		j += memory_aux_host[i];
 	}	
 
@@ -650,31 +629,37 @@ static void full_verify_gpu(){
 	free(memory_aux_host);
 }
 
-__global__ void full_verify_gpu_kernel_1(int* key_array,
-		int* key_buff2,
-		int number_of_blocks,
-		int amount_of_work){
-	int i = blockIdx.x*blockDim.x+threadIdx.x;
+__global__ void full_verify_gpu_kernel_1(INT_TYPE* key_array,
+		INT_TYPE* key_buff2,
+		INT_TYPE number_of_blocks,
+		INT_TYPE amount_of_work){
+	INT_TYPE i = blockIdx.x*blockDim.x+threadIdx.x;
 	key_buff2[i] = key_array[i];
 }
 
-__global__ void full_verify_gpu_kernel_2(int* key_buff2,
-		int* key_buff_ptr_global,
-		int* key_array,
-		int number_of_blocks,
-		int amount_of_work){		
-	int value = key_buff2[blockIdx.x*blockDim.x+threadIdx.x];
-	int index = atomicAdd(&key_buff_ptr_global[value], -1) - 1;
+__global__ void full_verify_gpu_kernel_2(INT_TYPE* key_buff2,
+		INT_TYPE* key_buff_ptr_global,
+		INT_TYPE* key_array,
+		INT_TYPE number_of_blocks,
+		INT_TYPE amount_of_work){		
+	INT_TYPE value = key_buff2[blockIdx.x*blockDim.x+threadIdx.x];
+
+	#if CLASS == 'D'
+		INT_TYPE index = atomicAdd( (unsigned long long int*) &key_buff_ptr_global[value], (unsigned long long int) -1) -1;
+	#else
+		INT_TYPE index = atomicAdd(&key_buff_ptr_global[value], -1) -1;
+	#endif
+
 	key_array[index] = value;
 }
 
-__global__ void full_verify_gpu_kernel_3(int* key_array,
-		int* global_aux,
-		int number_of_blocks,
-		int amount_of_work){
-	int* shared_aux = (int*)(extern_share_data);
+__global__ void full_verify_gpu_kernel_3(INT_TYPE* key_array,
+		INT_TYPE* global_aux,
+		INT_TYPE number_of_blocks,
+		INT_TYPE amount_of_work){
+	INT_TYPE* shared_aux = (INT_TYPE*)(extern_share_data);
 
-	int i = (blockIdx.x*blockDim.x+threadIdx.x) + 1;
+	INT_TYPE i = (blockIdx.x*blockDim.x+threadIdx.x) + 1;
 
 	if(i<NUM_KEYS){
 		if(key_array[i-1]>key_array[i]){shared_aux[threadIdx.x]=1;}
@@ -701,7 +686,7 @@ __device__ double randlc_device(double* X,
 	double X1;
 	double X2;
 	double Z;
-	int j;
+	INT_TYPE j;
 
 	/*
 	 * --------------------------------------------------------------------
@@ -737,7 +722,7 @@ __device__ double randlc_device(double* X,
 	return(R46 * *X);
 } 
 
-static void rank_gpu(int iteration){
+static void rank_gpu(INT_TYPE iteration){
 	/* rank_gpu_kernel_1 */
 	rank_gpu_kernel_1<<<blocks_per_grid_on_rank_1, 
 		threads_per_block_on_rank_1>>>(key_array_device,
@@ -796,12 +781,12 @@ static void rank_gpu(int iteration){
 				amount_of_work_on_rank_7);
 }
 
-__global__ void rank_gpu_kernel_1(int* key_array,
-		int* partial_verify_vals,
-		int* test_index_array,
-		int iteration,
-		int number_of_blocks,
-		int amount_of_work){
+__global__ void rank_gpu_kernel_1(INT_TYPE* key_array,
+		INT_TYPE* partial_verify_vals,
+		INT_TYPE* test_index_array,
+		INT_TYPE iteration,
+		INT_TYPE number_of_blocks,
+		INT_TYPE amount_of_work){
 	key_array[iteration] = iteration;
 	key_array[iteration+MAX_ITERATIONS] = MAX_KEY - iteration;
 	/*
@@ -812,21 +797,21 @@ __global__ void rank_gpu_kernel_1(int* key_array,
 	 * --------------------------------------------------------------------
 	 */
 #pragma unroll
-	for(int i=0; i<TEST_ARRAY_SIZE; i++){
+	for(INT_TYPE i=0; i<TEST_ARRAY_SIZE; i++){
 		partial_verify_vals[i] = key_array[test_index_array[i]];
 	}
 }
 
-__global__ void rank_gpu_kernel_2(int* key_buff1,
-		int number_of_blocks,
-		int amount_of_work){
+__global__ void rank_gpu_kernel_2(INT_TYPE* key_buff1,
+		INT_TYPE number_of_blocks,
+		INT_TYPE amount_of_work){
 	key_buff1[blockIdx.x*blockDim.x+threadIdx.x] = 0;
 }
 
-__global__ void rank_gpu_kernel_3(int* key_buff_ptr,
-		int* key_buff_ptr2,
-		int number_of_blocks,
-		int amount_of_work){
+__global__ void rank_gpu_kernel_3(INT_TYPE* key_buff_ptr,
+		INT_TYPE* key_buff_ptr2,
+		INT_TYPE number_of_blocks,
+		INT_TYPE amount_of_work){
 	/*
 	 * --------------------------------------------------------------------
 	 * in this section, the keys themselves are used as their 
@@ -834,34 +819,38 @@ __global__ void rank_gpu_kernel_3(int* key_buff_ptr,
 	 * individual population  
 	 * --------------------------------------------------------------------
 	 */
-	atomicAdd(&key_buff_ptr[key_buff_ptr2[blockIdx.x*blockDim.x+threadIdx.x]], 1);
+	#if CLASS == 'D'
+		atomicAdd( (unsigned long long int*) &key_buff_ptr[key_buff_ptr2[blockIdx.x*blockDim.x+threadIdx.x]], (unsigned long long int) 1);
+	#else
+		atomicAdd(&key_buff_ptr[key_buff_ptr2[blockIdx.x*blockDim.x+threadIdx.x]], 1);
+	#endif
 }
 
-__global__ void rank_gpu_kernel_4(int* source,
-		int* destiny,
-		int* sum,
-		int number_of_blocks,
-		int amount_of_work){
-	int* shared_data = (int*)(extern_share_data);
+__global__ void rank_gpu_kernel_4(INT_TYPE* source,
+		INT_TYPE* destiny,
+		INT_TYPE* sum,
+		INT_TYPE number_of_blocks,
+		INT_TYPE amount_of_work){
+	INT_TYPE* shared_data = (INT_TYPE*)(extern_share_data);
 
 	shared_data[threadIdx.x] = 0;
-	int position = blockDim.x + threadIdx.x;
+	INT_TYPE position = blockDim.x + threadIdx.x;
 
-	int factor = MAX_KEY / number_of_blocks;
-	int start = factor * blockIdx.x;
-	int end = start + factor;
+	INT_TYPE factor = MAX_KEY / number_of_blocks;
+	INT_TYPE start = factor * blockIdx.x;
+	INT_TYPE end = start + factor;
 
-	for(int i=start; i<end; i+=blockDim.x){
+	for(INT_TYPE i=start; i<end; i+=blockDim.x){
 		shared_data[position] = source[i + threadIdx.x];
 
-		for(uint offset=1; offset<blockDim.x; offset<<=1){
+		for(INT_TYPE offset=1; offset<blockDim.x; offset<<=1){
 			__syncthreads();
-			int t = shared_data[position] + shared_data[position - offset];
+			INT_TYPE t = shared_data[position] + shared_data[position - offset];
 			__syncthreads();
 			shared_data[position] = t;
 		}
 
-		int prv_val = (i == start) ? 0 : destiny[i - 1];
+		INT_TYPE prv_val = (i == start) ? 0 : destiny[i - 1];
 		destiny[i + threadIdx.x] = shared_data[position] + prv_val;
 	}
 
@@ -869,19 +858,19 @@ __global__ void rank_gpu_kernel_4(int* source,
 	if(threadIdx.x==0){sum[blockIdx.x]=destiny[end-1];}
 }
 
-__global__ void rank_gpu_kernel_5(int* source,
-		int* destiny,
-		int number_of_blocks,
-		int amount_of_work){
-	int* shared_data = (int*)(extern_share_data);
+__global__ void rank_gpu_kernel_5(INT_TYPE* source,
+		INT_TYPE* destiny,
+		INT_TYPE number_of_blocks,
+		INT_TYPE amount_of_work){
+	INT_TYPE* shared_data = (INT_TYPE*)(extern_share_data);
 
 	shared_data[threadIdx.x] = 0;
-	int position = blockDim.x + threadIdx.x;
+	INT_TYPE position = blockDim.x + threadIdx.x;
 	shared_data[position] = source[threadIdx.x];
 
-	for(uint offset=1; offset<blockDim.x; offset<<=1){
+	for(INT_TYPE offset=1; offset<blockDim.x; offset<<=1){
 		__syncthreads();
-		int t = shared_data[position] + shared_data[position - offset];
+		INT_TYPE t = shared_data[position] + shared_data[position - offset];
 		__syncthreads();
 		shared_data[position] = t;
 	}
@@ -891,27 +880,27 @@ __global__ void rank_gpu_kernel_5(int* source,
 	destiny[threadIdx.x] = shared_data[position - 1];
 }
 
-__global__ void rank_gpu_kernel_6(int* source,
-		int* destiny,
-		int* offset,
-		int number_of_blocks,
-		int amount_of_work){
-	int factor = MAX_KEY / number_of_blocks;
-	int start = factor * blockIdx.x;
-	int end = start + factor;
-	int sum = offset[blockIdx.x];
-	for(int i=start; i<end; i+=blockDim.x){
+__global__ void rank_gpu_kernel_6(INT_TYPE* source,
+		INT_TYPE* destiny,
+		INT_TYPE* offset,
+		INT_TYPE number_of_blocks,
+		INT_TYPE amount_of_work){
+	INT_TYPE factor = MAX_KEY / number_of_blocks;
+	INT_TYPE start = factor * blockIdx.x;
+	INT_TYPE end = start + factor;
+	INT_TYPE sum = offset[blockIdx.x];
+	for(INT_TYPE i=start; i<end; i+=blockDim.x){
 		destiny[i + threadIdx.x] = source[i + threadIdx.x] + sum;
 	}
 }		
 
-__global__ void rank_gpu_kernel_7(int* partial_verify_vals,
-		int* key_buff_ptr,
-		int* test_rank_array,
-		int* passed_verification_device,
-		int iteration,
-		int number_of_blocks,
-		int amount_of_work){
+__global__ void rank_gpu_kernel_7(INT_TYPE* partial_verify_vals,
+		INT_TYPE* key_buff_ptr,
+		INT_TYPE* test_rank_array,
+		INT_TYPE* passed_verification_device,
+		INT_TYPE iteration,
+		INT_TYPE number_of_blocks,
+		INT_TYPE amount_of_work){
 	/*
 	 * --------------------------------------------------------------------
 	 * this is the partial verify test section 
@@ -919,14 +908,14 @@ __global__ void rank_gpu_kernel_7(int* partial_verify_vals,
 	 * shifted differently for different cases
 	 * --------------------------------------------------------------------
 	 */
-	int i, k;
-	int passed_verification = 0;
+	INT_TYPE i, k;
+	INT_TYPE passed_verification = 0;
 	for(i=0; i<TEST_ARRAY_SIZE; i++){  
 		/* test vals were put here on partial_verify_vals */                                           
 		k = partial_verify_vals[i];          
 		if(0<k && k<=NUM_KEYS-1){
-			int key_rank = key_buff_ptr[k-1];
-			int failed = 0;
+			INT_TYPE key_rank = key_buff_ptr[k-1];
+			INT_TYPE failed = 0;
 			switch(CLASS){
 				case 'S':
 					if(i<=2){
@@ -1009,7 +998,7 @@ __global__ void rank_gpu_kernel_7(int* partial_verify_vals,
 					break;
 			}
 			if(failed==1){
-				printf("Failed partial verification: iteration %d, test key %d\n", iteration, (int)i);
+				printf("Failed partial verification: iteration %ld, test key %ld\n", (long)iteration, (long)i);
 			}
 		}
 	}
@@ -1131,19 +1120,19 @@ static void setup_gpu(){
 	blocks_per_grid_on_full_verify_2=(ceil((double)(amount_of_work_on_full_verify_2)/(double)(threads_per_block_on_full_verify_2)));
 	blocks_per_grid_on_full_verify_3=(ceil((double)(amount_of_work_on_full_verify_3)/(double)(threads_per_block_on_full_verify_3)));
 
-	size_test_array_device=TEST_ARRAY_SIZE*sizeof(int);
-	size_key_array_device=SIZE_OF_BUFFERS*sizeof(int); 
-	size_key_buff1_device=MAX_KEY*sizeof(int); 
-	size_key_buff2_device=SIZE_OF_BUFFERS*sizeof(int);
-	size_index_array_device=TEST_ARRAY_SIZE*sizeof(int); 
-	size_rank_array_device=TEST_ARRAY_SIZE*sizeof(int);
-	size_partial_verify_vals_device=TEST_ARRAY_SIZE*sizeof(int);
-	size_passed_verification_device=1*sizeof(int);
-	size_key_scan_device=MAX_KEY*sizeof(int); 
-	size_sum_device=threads_per_block_on_rank*sizeof(int);
-	size_shared_data_on_rank_4=2*threads_per_block_on_rank_4*sizeof(int);
-	size_shared_data_on_rank_5=2*threads_per_block_on_rank_5*sizeof(int);
-	size_shared_data_on_full_verify_3=threads_per_block_on_full_verify_3*sizeof(int);
+	size_test_array_device=TEST_ARRAY_SIZE*sizeof(INT_TYPE);
+	size_key_array_device=SIZE_OF_BUFFERS*sizeof(INT_TYPE); 
+	size_key_buff1_device=MAX_KEY*sizeof(INT_TYPE); 
+	size_key_buff2_device=SIZE_OF_BUFFERS*sizeof(INT_TYPE);
+	size_index_array_device=TEST_ARRAY_SIZE*sizeof(INT_TYPE); 
+	size_rank_array_device=TEST_ARRAY_SIZE*sizeof(INT_TYPE);
+	size_partial_verify_vals_device=TEST_ARRAY_SIZE*sizeof(INT_TYPE);
+	size_passed_verification_device=1*sizeof(INT_TYPE);
+	size_key_scan_device=MAX_KEY*sizeof(INT_TYPE); 
+	size_sum_device=threads_per_block_on_rank*sizeof(INT_TYPE);
+	size_shared_data_on_rank_4=2*threads_per_block_on_rank_4*sizeof(INT_TYPE);
+	size_shared_data_on_rank_5=2*threads_per_block_on_rank_5*sizeof(INT_TYPE);
+	size_shared_data_on_full_verify_3=threads_per_block_on_full_verify_3*sizeof(INT_TYPE);
 
 	cudaMalloc(&key_array_device, size_key_array_device);
 	cudaMalloc(&key_buff1_device, size_key_buff1_device);
