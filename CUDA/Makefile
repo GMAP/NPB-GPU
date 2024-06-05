@@ -1,6 +1,7 @@
 SHELL=/bin/sh
 CLASS=S
 SFILE=config/suite.def
+GET_GPU_ARCH=../config/get_gpu_arch.sh
 
 default: header
 	@ $(SHELL) sys/print_instructions
@@ -8,35 +9,35 @@ default: header
 	       
 BT: bt
 bt: header
-	cd BT; $(MAKE) CLASS=$(CLASS)
+	cd BT; $(GET_GPU_ARCH); $(MAKE) CLASS=$(CLASS)
 		       
 SP: sp		       
 sp: header	       
-	cd SP; $(MAKE) CLASS=$(CLASS)
+	cd SP; $(GET_GPU_ARCH); $(MAKE) CLASS=$(CLASS)
 		       
 LU: lu		       
 lu: header	       
-	cd LU; $(MAKE) CLASS=$(CLASS)
+	cd LU; $(GET_GPU_ARCH); $(MAKE) CLASS=$(CLASS)
 		       
 MG: mg		       
 mg: header	       
-	cd MG; $(MAKE) CLASS=$(CLASS)
+	cd MG; $(GET_GPU_ARCH); $(MAKE) CLASS=$(CLASS)
 		       
 FT: ft		       
 ft: header	       
-	cd FT; $(MAKE) CLASS=$(CLASS)
+	cd FT; $(GET_GPU_ARCH); $(MAKE) CLASS=$(CLASS)
 		       
 IS: is		       
 is: header	       
-	cd IS; $(MAKE) CLASS=$(CLASS)
+	cd IS; $(GET_GPU_ARCH); $(MAKE) CLASS=$(CLASS)
 		       
 CG: cg		       
 cg: header	       
-	cd CG; $(MAKE) CLASS=$(CLASS)
+	cd CG; $(GET_GPU_ARCH); $(MAKE) CLASS=$(CLASS)
 		       
 EP: ep		       
 ep: header	       
-	cd EP; $(MAKE) CLASS=$(CLASS)
+	cd EP; $(GET_GPU_ARCH); $(MAKE) CLASS=$(CLASS)
 
 
 # Awk script courtesy cmg@cray.com
