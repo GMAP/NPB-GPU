@@ -53,35 +53,51 @@ Each directory is independent and contains its own implemented version:
 
 ## How to Compile
 
+1. Update the make.def file with the compute capability of the GPU you want to use to compile and run the NPB-GPU:
 
-Go inside the directory `CUDA` directory and execute:
+    1. Check the number of available NVIDIA GPUs by executing the following command:
+        ```
+        nvidia-smi --query-gpu=index --format=csv,noheader,nounits | wc -l
+        ```
 
-```
-make _BENCHMARK CLASS=_VERSION
-```
+    2. Find the compute capability of the GPU you want to use by executing the following command (replace GPU_ID with the actual GPU ID):
+        ```
+        nvidia-smi -i GPU_ID --query-gpu=compute_cap --format=csv,noheader,nounits
+        ```
 
-`_BENCHMARKs` are:
+    3. Update the `make.def` file by replacing `61` in the following line with the value of GPU compute compute capability you obtained:
+        ```
+        COMPUTE_CAPABILITY = -gencode arch=compute_61,code=sm_61
+        ```
 
+2. Go inside the `CUDA` directory and execute:
 
-CG, EP, FT, IS, MG, BT, LU, and SP 
+    ```
+    make _BENCHMARK CLASS=_VERSION
+    ```
 
-
-`_VERSIONs` are:
-
-+ Class S: small for quick test purposes
-
-+ Class W: workstation size (a 90's workstation; now likely too small)
-
-+ Classes A, B, C: standard test problems; ~4X size increase going from one class to the next
-
-+ Classes D, E, F: large test problems; ~16X size increase from each of the previous Classes
+    `_BENCHMARKs` are:
 
 
-Command example:
+        CG, EP, FT, IS, MG, BT, LU, and SP 
 
-```
-make ep CLASS=B
-```
+
+    `_VERSIONs` are:
+
+        + Class S: small for quick test purposes
+
+        + Class W: workstation size (a 90's workstation; now likely too small)
+
+        + Classes A, B, C: standard test problems; ~4X size increase going from one class to the next
+
+        + Classes D, E, F: large test problems; ~16X size increase from each of the previous Classes
+
+
+    Command example:
+
+    ```
+    make ep CLASS=B
+    ```
   
 
 ## Activating the additional timers
