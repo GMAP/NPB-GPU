@@ -1,0 +1,48 @@
+#---------------------------------------------------------------------------
+# C Compiler
+#---------------------------------------------------------------------------
+CC = g++
+
+#---------------------------------------------------------------------------
+# Global *compile time* flags for C programs
+#---------------------------------------------------------------------------
+CFLAGS = -Wall -O3 -mcmodel=large
+
+#---------------------------------------------------------------------------
+# These macros are passed to the compiler 
+#---------------------------------------------------------------------------
+C_INC =
+
+# This links C programs; usually the same as ${CC}
+CLINK =
+
+#---------------------------------------------------------------------------
+# These macros are passed to the linker 
+#---------------------------------------------------------------------------
+C_LIB = 
+
+#---------------------------------------------------------------------------
+# Destination of executables, relative to subdirs of the main directory. 
+#---------------------------------------------------------------------------
+BINDIR = ../bin
+
+#---------------------------------------------------------------------------
+# Parameters folder. 
+#---------------------------------------------------------------------------
+SYSDIR = ../sys
+
+#---------------------------------------------------------------------------
+# The variable RAND controls which random number generator 
+# is used. It is described in detail in Doc/README.install. 
+# Use "randi8" unless there is a reason to use another one. 
+# Other allowed values are "randi8_safe", "randdp" and "randdpvec"
+#---------------------------------------------------------------------------
+# RAND   = randi8
+# The following is highly reliable but may be slow:
+RAND = randdp
+
+#---------------------------------------------------------------------------
+# GSPARLIB
+#---------------------------------------------------------------------------
+GSPARLIB_PATH=../../lib/
+GSPARLIB = -std=c++14 -I/$(GSPARLIB_PATH)/src -L/$(GSPARLIB_PATH)/bin -lgspar -pthread
