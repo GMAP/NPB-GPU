@@ -44,5 +44,5 @@ RAND = randdp
 #---------------------------------------------------------------------------
 # GSPARLIB
 #---------------------------------------------------------------------------
-GSPARLIB_PATH=../../lib/
-GSPARLIB = -std=c++14 -I/$(GSPARLIB_PATH)/src -L/$(GSPARLIB_PATH)/bin -lgspar -pthread
+GSPARLIB_PATH=../../lib/gspar
+GSPARLIB = -std=c++14 -I$(GSPARLIB_PATH)/src -L$(GSPARLIB_PATH)/bin -lgspar -pthread

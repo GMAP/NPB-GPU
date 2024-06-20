@@ -16,13 +16,13 @@ This is a repository aimed at providing GPU parallel codes with different parall
 
 [DOI](https://doi.org/10.1109/PDP50117.2020.00009) - Araujo, G.; Griebler, D.; Danelutto, M.; Fernandes, L. G.; **Efficient NAS Benchmark Kernels with CUDA**. *28th Euromicro International Conference on Parallel, Distributed and Network-based Processing (PDP)*, Västerås, 2020. 
   
-## The NPB with CUDA
+## The NPB with GSParLib
 
-The parallel CUDA version was implemented from the serial version of [NPB-CPP](https://github.com/GMAP/NPB-CPP).
+The parallel GSParLib version was implemented from the serial version of [NPB-CPP](https://github.com/GMAP/NPB-CPP).
 
 ==================================================================
 
-NAS Parallel Benchmarks code contributors with CUDA are:
+NAS Parallel Benchmarks code contributors with GSParLib are:
 
 Dalvan Griebler: dalvan.griebler@pucrs.br
 
@@ -57,7 +57,7 @@ Each directory is independent and contains its own implemented version:
 Go inside the directory `CUDA` directory and execute:
 
 ```
-make _BENCHMARK CLASS=_VERSION
+make _BENCHMARK CLASS=_VERSION GPU_DRIVER=_GPU_BACKEND
 ```
 
 `_BENCHMARKs` are:
@@ -77,11 +77,23 @@ CG, EP, FT, IS, MG, BT, LU, and SP
 + Classes D, E, F: large test problems; ~16X size increase from each of the previous Classes
 
 
+`_GPU_BACKEND` are:
+
+CUDA, OPENCL
+
+
 Command example:
 
 ```
-make ep CLASS=B
+make ep CLASS=B GPU_DRIVER=CUDA
 ```
+
+
+## How to Run
+
+
+export LD_LIBRARY_PATH=../lib/gspar/bin:$LD_LIBRARY_PATH
+bin/ep.B
   
 
 ## Activating the additional timers
