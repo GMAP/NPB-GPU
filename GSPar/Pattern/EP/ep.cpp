@@ -68,7 +68,11 @@
 #include "../common/npb.hpp"
 #include "npbparams.hpp"
 
-#ifdef GSPARDRIVER_CUDA
+#include "GSPar_PatternMap.hpp"
+#include "GSPar_PatternReduce.hpp"
+#include "GSPar_PatternComposition.hpp"
+
+#if defined(GSPARDRIVER_CUDA)
 #include "GSPar_CUDA.hpp"
 using namespace GSPar::Driver::CUDA;
 #else
@@ -77,6 +81,7 @@ using namespace GSPar::Driver::CUDA;
 using namespace GSPar::Driver::OpenCL;
 #endif
 
+using namespace GSPar::Pattern;
 using namespace std;
 
 /*
@@ -112,7 +117,7 @@ static double (*q)=(double*)malloc(sizeof(double)*(NQ));
 #endif
 
 /* gpu data */
-string device_name;
+string DEVICE_NAME;
 Instance* driver;
 int amount_of_work;
 int threads_per_block;
@@ -126,10 +131,11 @@ double* sy_host;
 MemoryObject* q_device;
 MemoryObject* sx_device;
 MemoryObject* sy_device;
-Kernel* kernel_ep; 
+Map* kernel_ep; 
 extern std::string source_kernel_ep;
-extern std::string source_kernel_ep_complete;
-extern std::string source_additional_routines;
+extern std::string source_additional_routines_complete;
+extern std::string source_additional_routines_1;
+extern std::string source_additional_routines_2;
 
 /* function prototypes */
 static void setup_gpu();
@@ -140,10 +146,10 @@ int main(int argc, char** argv){
 	printf(" DO_NOT_ALLOCATE_ARRAYS_WITH_DYNAMIC_MEMORY_AND_AS_SINGLE_DIMENSION mode on\n");
 #endif
 #ifdef GSPARDRIVER_CUDA
-	printf(" Performing GSParLib (Driver API) with CUDA\n");
+	printf(" Performing GSParLib with CUDA\n");
 #else
 /* GSPARDRIVER_OPENCL */
-	printf(" Performing GSParLib (Driver API) with OpenCL\n");
+	printf(" Performing GSParLib with OpenCL\n");
 #endif
 	double  Mops, t1, t2, t3, t4, x1, x2;
 	double  sx, sy, tm, an, tt, gc;
@@ -190,7 +196,7 @@ int main(int argc, char** argv){
 	vranlc(0, &dum[0], dum[1], &dum[2]);
 	dum[0] = randlc(&dum[1], dum[2]);
 	for(i=0; i<NK_PLUS; i++){x[i] = -1.0e99;}
-	Mops = log(sqrt(fabs(npb_max(1.0, 1.0))));	
+	Mops = log(sqrt(fabs(npb_max(1.0, 1.0))));
 
 	t1 = A;
 	vranlc(0, &t1, A, x);
@@ -225,19 +231,15 @@ int main(int argc, char** argv){
 	timer_clear(PROFILING_TOTAL_TIME);
 	timer_start(PROFILING_TOTAL_TIME);
 
-	try {		
-		int nk_aux = NK;
+	/* kernel_ep */
+	try {
+		kernel_ep->setParameter<double*>("q_global", q_device, GSPAR_PARAM_PRESENT);
+		kernel_ep->setParameter<double*>("sx_global", sx_device, GSPAR_PARAM_PRESENT);
+		kernel_ep->setParameter<double*>("sy_global", sy_device, GSPAR_PARAM_PRESENT);
+		kernel_ep->setParameter("an", an);
+		kernel_ep->setParameter("NK", NK);
 
-		kernel_ep->setNumThreadsPerBlockForX(threads_per_block);
-		kernel_ep->setParameter(q_device);
-		kernel_ep->setParameter(sx_device);
-		kernel_ep->setParameter(sy_device);
-		kernel_ep->setParameter(sizeof(double), &an);
-		kernel_ep->setParameter(sizeof(int), &nk_aux);
-
-		unsigned long dimensions[3] = {(long unsigned int)amount_of_work, 0, 0}; 
-		kernel_ep->runAsync(dimensions);
-		kernel_ep->waitAsync();
+		kernel_ep->run<Instance>();
 	} catch (GSPar::GSParException &ex) {
 		std::cerr << "Exception: " << ex.what() << " - " << ex.getDetails() << std::endl;
 		exit(-1);
@@ -319,7 +321,7 @@ int main(int argc, char** argv){
 			(char*)COMPILERVERSION,
 			(char*)LIBVERSION,
 			(char*)CPU_MODEL,
-			(char*) device_name.c_str(),
+			(char*) DEVICE_NAME.c_str(),
 			(char*)CS1,
 			(char*)CS2,
 			(char*)CS3,
@@ -339,10 +341,12 @@ static void setup_gpu(){
 	if (numGpus == 0) {
 		std::cout << "No GPU found, interrupting the benchmark" << std::endl;
 		exit(-1);
-	}	
+	}
 
 	auto gpus = driver->getGpuList();
-	device_name = gpus[0]->getName();
+
+	DEVICE_NAME = gpus[0]->getName();	
+
 	auto gpu = driver->getGpu(0);
 
 	amount_of_work = NN;
@@ -358,11 +362,11 @@ static void setup_gpu(){
 
 	q_host=(double*)malloc(q_size);
 	sx_host=(double*)malloc(sx_size);
-	sy_host=(double*)malloc(sy_size);	
+	sy_host=(double*)malloc(sy_size);
 
 	q_device = gpu->malloc(q_size, q_host);
 	sx_device = gpu->malloc(sx_size, sx_host);
-	sy_device = gpu->malloc(sy_size, sy_host);	
+	sy_device = gpu->malloc(sy_size, sy_host);
 
 	for(int block=0; block<blocks_per_grid; block++){
 		for(int i=0; i<NQ; i++){
@@ -374,25 +378,49 @@ static void setup_gpu(){
 
 	q_device->copyIn();
 	sx_device->copyIn();
-	sy_device->copyIn();
+	sy_device->copyIn();	
 
-	source_kernel_ep_complete.append(source_additional_routines);
-	source_kernel_ep_complete.append(source_kernel_ep);
+	source_additional_routines_complete.append(source_additional_routines_1);
+	source_additional_routines_complete.append(source_additional_routines_2);
 
-	try{
-		kernel_ep = new Kernel(gpu, source_kernel_ep_complete, "gpu_kernel");
+	/* kernel_ep */
+	double an = 0.0;
+	try {
+		unsigned long dims[3] = {(long unsigned int)amount_of_work, 0, 0}; 
 
+		kernel_ep = new Map(source_kernel_ep);
+
+		kernel_ep->setStdVarNames({"gspar_thread_id"});			
+
+		kernel_ep->setParameter<double*>("q_global", q_device, GSPAR_PARAM_PRESENT);
+		kernel_ep->setParameter<double*>("sx_global", sx_device, GSPAR_PARAM_PRESENT);
+		kernel_ep->setParameter<double*>("sy_global", sy_device, GSPAR_PARAM_PRESENT);
+		kernel_ep->setParameter("an", an);
+		kernel_ep->setParameter("NK", NK);
+
+		kernel_ep->setNumThreadsPerBlockForX(threads_per_block);
+
+		kernel_ep->addExtraKernelCode(source_additional_routines_complete);
+
+		kernel_ep->compile<Instance>(dims);
 	} catch (GSPar::GSParException &ex) {
 		std::cerr << "Exception: " << ex.what() << " - " << ex.getDetails() << std::endl;
 		exit(-1);
 	}
 }
 
-std::string source_kernel_ep_complete = "\n";
+std::string source_additional_routines_complete = "\n";
 
-std::string source_additional_routines = GSPAR_STRINGIZE_SOURCE(
-GSPAR_DEVICE_MACRO_BEGIN NQ 10 GSPAR_DEVICE_MACRO_END
-GSPAR_DEVICE_MACRO_BEGIN RECOMPUTING 128 GSPAR_DEVICE_MACRO_END
+std::string source_additional_routines_1 = 
+"\n"
+"#define THREADS_PER_BLOCK 32\n"
+"#define NQ 10\n"
+"#define RECOMPUTING 128\n"
+"\n"
+"\n"
+"\n";
+
+std::string source_additional_routines_2 = GSPAR_STRINGIZE_SOURCE(
 GSPAR_DEVICE_CONSTANT double A = (1220703125.0);
 GSPAR_DEVICE_CONSTANT double S = (271828183.0);
 GSPAR_DEVICE_CONSTANT double R23 = (0.5*0.5*0.5*0.5*0.5*0.5*0.5*0.5*0.5*0.5*0.5*0.5*0.5*0.5*0.5*0.5*0.5*0.5*0.5*0.5*0.5*0.5*0.5);
@@ -436,15 +464,12 @@ GSPAR_DEVICE_FUNCTION void vranlc_device(int n, double* x_seed, double a, double
 		y[i] = R46 * x;
 	}
 	*x_seed = x;
-});
+}
+);
 
 std::string source_kernel_ep = GSPAR_STRINGIZE_SOURCE(
-GSPAR_DEVICE_KERNEL void gpu_kernel(
-	GSPAR_DEVICE_GLOBAL_MEMORY double* q_global, 
-	GSPAR_DEVICE_GLOBAL_MEMORY double* sx_global, 
-	GSPAR_DEVICE_GLOBAL_MEMORY double* sy_global,
-	double an,
-	int NK){
+	// BEGIN 		
+
 	double x_local[2*RECOMPUTING];
 	double q_local[NQ]; 
 	double sx_local, sy_local;
@@ -508,4 +533,6 @@ GSPAR_DEVICE_KERNEL void gpu_kernel(
 	gspar_atomic_add_double(q_global+gspar_get_block_id(0)*NQ+9, q_local[9]); 
 	gspar_atomic_add_double(sx_global+gspar_get_block_id(0), sx_local); 
 	gspar_atomic_add_double(sy_global+gspar_get_block_id(0), sy_local);
-});
+
+	//END
+);
