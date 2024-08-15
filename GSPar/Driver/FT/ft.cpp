@@ -55,11 +55,14 @@
  *      Gabriell Araujo <hexenoften@gmail.com>
  *
  * ------------------------------------------------------------------------------
+ * 
+ * How to run:
+ *      export LD_LIBRARY_PATH=../lib/gspar/bin:$LD_LIBRARY_PATH
+ *      clear && make clean && make ft CLASS=S GPU_DRIVER=CUDA && bin/ft.S 
+ *      clear && make clean && make ft CLASS=S GPU_DRIVER=OPENCL && bin/ft.S 
+ * 
+ * ------------------------------------------------------------------------------
  */
-
-// export LD_LIBRARY_PATH=../lib/gspar/bin:$LD_LIBRARY_PATH
-// clear && make clean && make ep CLASS=S GPU_DRIVER=CUDA && bin/ep.S 
-// clear && make clean && make ep CLASS=S GPU_DRIVER=OPENCL && bin/ep.S 
 
 #include <iostream>
 #include <chrono>
@@ -152,8 +155,20 @@ using namespace std;
 #define TASK_INIT_UI (2)
 #define PROFILING_TOTAL_TIME (0)
 #define CHECKSUM_TASKS (1024)
-#define MAX_THREADS_PER_BLOCK (1024)
-#define THREADS_PER_BLOCK (32)
+#define FT_THREADS_PER_BLOCK_ON_CHECKSUM 32
+#define FT_THREADS_PER_BLOCK_ON_COMPUTE_INDEXMAP 32
+#define FT_THREADS_PER_BLOCK_ON_COMPUTE_INITIAL_CONDITIONS 32
+#define FT_THREADS_PER_BLOCK_ON_EVOLVE 32
+#define FT_THREADS_PER_BLOCK_ON_FFTX_1 1024
+#define FT_THREADS_PER_BLOCK_ON_FFTX_2 32
+#define FT_THREADS_PER_BLOCK_ON_FFTX_3 256
+#define FT_THREADS_PER_BLOCK_ON_FFTY_1 32
+#define FT_THREADS_PER_BLOCK_ON_FFTY_2 32
+#define FT_THREADS_PER_BLOCK_ON_FFTY_3 32
+#define FT_THREADS_PER_BLOCK_ON_FFTZ_1 32
+#define FT_THREADS_PER_BLOCK_ON_FFTZ_2 32
+#define FT_THREADS_PER_BLOCK_ON_FFTZ_3 32
+#define FT_THREADS_PER_BLOCK_ON_INIT_UI 32
 
 /* global variables */
 #if defined(DO_NOT_ALLOCATE_ARRAYS_WITH_DYNAMIC_MEMORY_AND_AS_SINGLE_DIMENSION)
@@ -1366,7 +1381,6 @@ static void cffts2_gpu(int is,
 		unsigned long dimensions_on_kernel_ffty_3[3] = {(unsigned long)amount_of_work_on_ffty_3, 0, 0};
 		kernel_ffty_3->runAsync(dimensions_on_kernel_ffty_3);
 		kernel_ffty_3->waitAsync();
-
 	} catch (GSPar::GSParException &ex) {
 		std::cerr << "Exception: " << ex.what() << " - " << ex.getDetails() << std::endl;
 		exit(-1);
@@ -1402,7 +1416,6 @@ static void cffts3_gpu(int is,
 	}
 
 	try {
-
 		/* kernel_fftz_2 */
 		kernel_fftz_2->clearParameters();
 		kernel_fftz_2->clearParameters();
@@ -1416,8 +1429,8 @@ static void cffts3_gpu(int is,
 		kernel_fftz_2->setParameter(sizeof(int), &nz_aux);
 
 		unsigned long dimensions_on_kernel_fftz_2[3] = {(unsigned long)amount_of_work_on_fftz_2, 0, 0};
-		kernel_fftz_2->runAsync(dimensions_on_kernel_fftz_2);		kernel_fftz_2->waitAsync();
-
+		kernel_fftz_2->runAsync(dimensions_on_kernel_fftz_2);		
+		kernel_fftz_2->waitAsync();
 	} catch (GSPar::GSParException &ex) {
 		std::cerr << "Exception: " << ex.what() << " - " << ex.getDetails() << std::endl;
 		exit(-1);
@@ -1436,7 +1449,6 @@ static void cffts3_gpu(int is,
 		unsigned long dimensions_on_kernel_fftz_3[3] = {(unsigned long)amount_of_work_on_fftz_3, 0, 0};
 		kernel_fftz_3->runAsync(dimensions_on_kernel_fftz_3);
 		kernel_fftz_3->waitAsync();
-
 	} catch (GSPar::GSParException &ex) {
 		std::cerr << "Exception: " << ex.what() << " - " << ex.getDetails() << std::endl;
 		exit(-1);
@@ -1660,25 +1672,23 @@ static void setup_gpu(){
 	}
 
 	auto gpus = driver->getGpuList();
-
 	DEVICE_NAME = gpus[0]->getName();	
-
 	auto gpu = driver->getGpu(0);	
 
-	threads_per_block_on_compute_indexmap = THREADS_PER_BLOCK;
-	threads_per_block_on_compute_initial_conditions = THREADS_PER_BLOCK;
-	threads_per_block_on_init_ui = THREADS_PER_BLOCK;
-	threads_per_block_on_evolve = THREADS_PER_BLOCK;
-	threads_per_block_on_fftx_1 = THREADS_PER_BLOCK;
-	threads_per_block_on_fftx_2 = THREADS_PER_BLOCK;
-	threads_per_block_on_fftx_3 = THREADS_PER_BLOCK;
-	threads_per_block_on_ffty_1 = THREADS_PER_BLOCK;
-	threads_per_block_on_ffty_2 = THREADS_PER_BLOCK;
-	threads_per_block_on_ffty_3 = THREADS_PER_BLOCK;
-	threads_per_block_on_fftz_1 = THREADS_PER_BLOCK;
-	threads_per_block_on_fftz_2 = THREADS_PER_BLOCK;
-	threads_per_block_on_fftz_3 = THREADS_PER_BLOCK;
-	threads_per_block_on_checksum = THREADS_PER_BLOCK;
+	threads_per_block_on_compute_indexmap = FT_THREADS_PER_BLOCK_ON_COMPUTE_INDEXMAP;
+	threads_per_block_on_compute_initial_conditions = FT_THREADS_PER_BLOCK_ON_COMPUTE_INITIAL_CONDITIONS;
+	threads_per_block_on_init_ui = FT_THREADS_PER_BLOCK_ON_INIT_UI;
+	threads_per_block_on_evolve = FT_THREADS_PER_BLOCK_ON_EVOLVE;
+	threads_per_block_on_fftx_1 = FT_THREADS_PER_BLOCK_ON_FFTX_1;
+	threads_per_block_on_fftx_2 = FT_THREADS_PER_BLOCK_ON_FFTX_2;
+	threads_per_block_on_fftx_3 = FT_THREADS_PER_BLOCK_ON_FFTX_3;
+	threads_per_block_on_ffty_1 = FT_THREADS_PER_BLOCK_ON_FFTY_1;
+	threads_per_block_on_ffty_2 = FT_THREADS_PER_BLOCK_ON_FFTY_2;
+	threads_per_block_on_ffty_3 = FT_THREADS_PER_BLOCK_ON_FFTY_3;
+	threads_per_block_on_fftz_1 = FT_THREADS_PER_BLOCK_ON_FFTZ_1;
+	threads_per_block_on_fftz_2 = FT_THREADS_PER_BLOCK_ON_FFTZ_2;
+	threads_per_block_on_fftz_3 = FT_THREADS_PER_BLOCK_ON_FFTZ_3;
+	threads_per_block_on_checksum = FT_THREADS_PER_BLOCK_ON_CHECKSUM;
 
 	amount_of_work_on_compute_indexmap = NX*NY*NZ;
 	amount_of_work_on_compute_initial_conditions = NZ;
@@ -1906,8 +1916,6 @@ GSPAR_DEVICE_KERNEL void cffts1_gpu_kernel_1(
 		int NX,
 		int NY,
 		int NZ){
-	//BEGIN 
-
 	int x_y_z = gspar_get_global_id(0);
 	if(x_y_z >= (NX*NY*NZ)){
 		return;
@@ -1917,8 +1925,6 @@ GSPAR_DEVICE_KERNEL void cffts1_gpu_kernel_1(
 	int z = x_y_z / (NX * NY);
 	y0[y+(x*NY)+(z*NX*NY)].real = x_in[x_y_z].real;
 	y0[y+(x*NY)+(z*NX*NY)].imag = x_in[x_y_z].imag;
-
-	//END
 });
 
 std::string kernel_source_fftx_2 = GSPAR_STRINGIZE_SOURCE(
@@ -1930,8 +1936,6 @@ GSPAR_DEVICE_KERNEL void cffts1_gpu_kernel_2(
 		int NX,
 		int NY,
 		int NZ){	
-	// BEGIN
-
 	int y_z = gspar_get_global_id(0);
 
 	if(y_z >= (NY*NZ)){
@@ -2034,8 +2038,6 @@ GSPAR_DEVICE_KERNEL void cffts1_gpu_kernel_2(
 			}
 		}
 	} 	
-
-	// END
 });
 
 std::string kernel_source_fftx_3 = GSPAR_STRINGIZE_SOURCE(
@@ -2045,8 +2047,6 @@ GSPAR_DEVICE_KERNEL void cffts1_gpu_kernel_3(
 		int NX,
 		int NY,
 		int NZ){
-	// BEGIN
-
 	int x_y_z = gspar_get_global_id(0);
 	if(x_y_z >= (NX*NY*NZ)){
 		return;
@@ -2056,8 +2056,6 @@ GSPAR_DEVICE_KERNEL void cffts1_gpu_kernel_3(
 	int z = x_y_z / (NX * NY);
 	x_out[x_y_z].real = y0[y+(x*NY)+(z*NX*NY)].real;
 	x_out[x_y_z].imag = y0[y+(x*NY)+(z*NX*NY)].imag;
-
-	// END
 });
 
 std::string kernel_source_ffty_1 = GSPAR_STRINGIZE_SOURCE(
@@ -2067,16 +2065,12 @@ GSPAR_DEVICE_KERNEL void cffts2_gpu_kernel_1(
 		int NX,
 		int NY,
 		int NZ){
-	// BEGIN
-
 	int x_y_z = gspar_get_global_id(0);
 	if(x_y_z >= (NX*NY*NZ)){
 		return;
 	}
 	y0[x_y_z].real = x_in[x_y_z].real;
 	y0[x_y_z].imag = x_in[x_y_z].imag;
-
-	// END
 });
 
 std::string kernel_source_ffty_2 = GSPAR_STRINGIZE_SOURCE(
@@ -2088,8 +2082,6 @@ GSPAR_DEVICE_KERNEL void cffts2_gpu_kernel_2(
 		int NX,
 		int NY,
 		int NZ){
-	// BEGIN
-
 	int x_z = gspar_get_global_id(0);
 
 	if(x_z >= (NX*NZ)){
@@ -2194,8 +2186,6 @@ GSPAR_DEVICE_KERNEL void cffts2_gpu_kernel_2(
 			}
 		}
 	}
-
-	// END
 });
 
 std::string kernel_source_ffty_3 = GSPAR_STRINGIZE_SOURCE(
@@ -2205,16 +2195,12 @@ GSPAR_DEVICE_KERNEL void cffts2_gpu_kernel_3(
 		int NX,
 		int NY,
 		int NZ){
-	// BEGIN
-
 	int x_y_z = gspar_get_global_id(0);
 	if(x_y_z >= (NX*NY*NZ)){
 		return;
 	}
 	x_out[x_y_z].real = y0[x_y_z].real;
 	x_out[x_y_z].imag = y0[x_y_z].imag;
-
-	//END
 });
 
 std::string kernel_source_fftz_1 = GSPAR_STRINGIZE_SOURCE(
@@ -2224,16 +2210,12 @@ GSPAR_DEVICE_KERNEL void cffts3_gpu_kernel_1(
 		int NX,
 		int NY,
 		int NZ){
-	// BEGIN
-
 	int x_y_z = gspar_get_global_id(0);
 	if(x_y_z >= (NX*NY*NZ)){
 		return;
 	}
 	y0[x_y_z].real = x_in[x_y_z].real;
 	y0[x_y_z].imag = x_in[x_y_z].imag;
-
-	//END
 });
 
 std::string kernel_source_fftz_2 = GSPAR_STRINGIZE_SOURCE(
@@ -2245,8 +2227,6 @@ GSPAR_DEVICE_KERNEL void cffts3_gpu_kernel_2(
 		int NX,
 		int NY,
 		int NZ){
-	// BEGIN
-
 	int x_y = gspar_get_global_id(0);
 	if(x_y >= (NX*NY)){
 		return;
@@ -2259,8 +2239,6 @@ GSPAR_DEVICE_KERNEL void cffts3_gpu_kernel_2(
 			u_device, 
 			x_y /* index_arg */, 
 			NX*NY /* size_arg */);
-
-	//END
 });
 
 std::string kernel_source_fftz_3 = GSPAR_STRINGIZE_SOURCE(
@@ -2270,16 +2248,12 @@ GSPAR_DEVICE_KERNEL void cffts3_gpu_kernel_3(
 		int NX,
 		int NY,
 		int NZ){
-	// BEGIN
-
 	int x_y_z = gspar_get_global_id(0);
 	if(x_y_z >= (NX*NY*NZ)){
 		return;
 	}
 	x_out[x_y_z].real = y0[x_y_z].real;
 	x_out[x_y_z].imag = y0[x_y_z].imag;
-
-	// END
 });
 
 std::string kernel_source_checksum = GSPAR_STRINGIZE_SOURCE(
@@ -2290,12 +2264,10 @@ GSPAR_DEVICE_KERNEL void checksum_gpu_kernel(
 		int NX,
 		int NY,
 		int NZ,
-		int NTOTAL){
-		// BEGIN
-		
+		int NTOTAL){		
 	int thread_id = gspar_get_global_id(0);
 	
-	GSPAR_DEVICE_SHARED_MEMORY dcomplex share_sums[THREADS_PER_BLOCK];
+	GSPAR_DEVICE_SHARED_MEMORY dcomplex share_sums[FT_THREADS_PER_BLOCK_ON_CHECKSUM];
 	int j = thread_id + 1;
 	int q, r, s;
 
@@ -2325,8 +2297,6 @@ GSPAR_DEVICE_KERNEL void checksum_gpu_kernel(
 		share_sums[0].imag = share_sums[0].imag/(double)(NTOTAL);
 		gspar_atomic_add_double(&sums[iteration].imag,share_sums[0].imag);			
 	}	
-
-	// END
 });
 
 std::string kernel_source_compute_indexmap = GSPAR_STRINGIZE_SOURCE(
@@ -2338,9 +2308,6 @@ GSPAR_DEVICE_KERNEL void compute_indexmap_gpu_kernel(
 		int NZ,		
 		int NTOTAL,
 		double AP){
-
-	// BEGIN
-
 	int thread_id = gspar_get_global_id(0);
 
 	if(thread_id>=NTOTAL){
@@ -2360,8 +2327,6 @@ GSPAR_DEVICE_KERNEL void compute_indexmap_gpu_kernel(
 	ii = ((i+NX/2) % NX) - NX/2;
 
 	twiddle[thread_id] = exp(AP*(double)(ii*ii+kj2));
-
-	// END
 });
 
 std::string kernel_source_compute_initial_conditions = GSPAR_STRINGIZE_SOURCE(
@@ -2372,8 +2337,6 @@ GSPAR_DEVICE_KERNEL void compute_initial_conditions_gpu_kernel(
 		int NY,
 		int NZ,
 		double A){ 
-	// BEGIN
-
 	int z = gspar_get_global_id(0);
 
 	if(z>=NZ){return;}
@@ -2382,8 +2345,6 @@ GSPAR_DEVICE_KERNEL void compute_initial_conditions_gpu_kernel(
 	for(int y=0; y<NY; y++){
 		vranlc_device(2*NX, &x0, A, (double*)&u0[ 0 + y*NX + z*NX*NY ]);
 	}
-
-	//END
 });
 
 std::string kernel_source_evolve = GSPAR_STRINGIZE_SOURCE(
@@ -2394,8 +2355,6 @@ GSPAR_DEVICE_KERNEL void evolve_gpu_kernel(
 		int NX,
 		int NY,
 		int NZ){
-	// BEGIN
-
 	int thread_id = gspar_get_global_id(0);
 
 	if(thread_id>=(NZ*NY*NX)){
@@ -2404,8 +2363,6 @@ GSPAR_DEVICE_KERNEL void evolve_gpu_kernel(
 
 	u0[thread_id] = dcomplex_mul2(u0[thread_id], twiddle[thread_id]);
 	u1[thread_id] = u0[thread_id];
-
-	// END
 });
 
 std::string kernel_source_init_ui = GSPAR_STRINGIZE_SOURCE(
@@ -2417,8 +2374,6 @@ void init_ui_gpu_kernel(
 	int NX,
 	int NY,
 	int NZ){
-	// BEGIN
-
 	int thread_id = gspar_get_global_id(0);
 
 	if(thread_id>=(NX*NY*NZ)){
@@ -2431,17 +2386,24 @@ void init_ui_gpu_kernel(
 	u0[thread_id] = aux;
 	u1[thread_id] = aux;
 	twiddle[thread_id] = 0.0;
-
-	// END
 });
 
-std::string source_additional_routines_1 = 
-"\n"
-"#define CHECKSUM_TASKS 1024\n"
-"#define WARP_SIZE 32\n"
-"#define MAX_THREADS_PER_BLOCK 1024\n"
-"#define THREADS_PER_BLOCK 32\n"
-"\n";
+std::string source_additional_routines_1 =
+	"#define CHECKSUM_TASKS " + std::to_string(CHECKSUM_TASKS) + "\n" +
+    "#define FT_THREADS_PER_BLOCK_ON_COMPUTE_INDEXMAP " + std::to_string(FT_THREADS_PER_BLOCK_ON_COMPUTE_INDEXMAP) + "\n" +
+    "#define FT_THREADS_PER_BLOCK_ON_COMPUTE_INITIAL_CONDITIONS " + std::to_string(FT_THREADS_PER_BLOCK_ON_COMPUTE_INITIAL_CONDITIONS) + "\n" +
+    "#define FT_THREADS_PER_BLOCK_ON_EVOLVE " + std::to_string(FT_THREADS_PER_BLOCK_ON_EVOLVE) + "\n" +
+    "#define FT_THREADS_PER_BLOCK_ON_FFTX_1 " + std::to_string(FT_THREADS_PER_BLOCK_ON_FFTX_1) + "\n" +
+    "#define FT_THREADS_PER_BLOCK_ON_FFTX_2 " + std::to_string(FT_THREADS_PER_BLOCK_ON_FFTX_2) + "\n" +
+    "#define FT_THREADS_PER_BLOCK_ON_FFTX_3 " + std::to_string(FT_THREADS_PER_BLOCK_ON_FFTX_3) + "\n" +
+    "#define FT_THREADS_PER_BLOCK_ON_FFTY_1 " + std::to_string(FT_THREADS_PER_BLOCK_ON_FFTY_1) + "\n" +
+    "#define FT_THREADS_PER_BLOCK_ON_FFTY_2 " + std::to_string(FT_THREADS_PER_BLOCK_ON_FFTY_2) + "\n" +
+    "#define FT_THREADS_PER_BLOCK_ON_FFTY_3 " + std::to_string(FT_THREADS_PER_BLOCK_ON_FFTY_3) + "\n" +
+    "#define FT_THREADS_PER_BLOCK_ON_FFTZ_1 " + std::to_string(FT_THREADS_PER_BLOCK_ON_FFTZ_1) + "\n" +
+    "#define FT_THREADS_PER_BLOCK_ON_FFTZ_2 " + std::to_string(FT_THREADS_PER_BLOCK_ON_FFTZ_2) + "\n" +
+    "#define FT_THREADS_PER_BLOCK_ON_FFTZ_3 " + std::to_string(FT_THREADS_PER_BLOCK_ON_FFTZ_3) + "\n" +
+    "#define FT_THREADS_PER_BLOCK_ON_CHECKSUM " + std::to_string(FT_THREADS_PER_BLOCK_ON_CHECKSUM) + "\n" +
+    "#define FT_THREADS_PER_BLOCK_ON_INIT_UI " + std::to_string(FT_THREADS_PER_BLOCK_ON_INIT_UI) + "\n";
 
 std::string source_additional_routines_2 = GSPAR_STRINGIZE_SOURCE(
 /* dcomplex struct */

@@ -56,11 +56,14 @@
  *      Gabriell Araujo <hexenoften@gmail.com>
  *
  * ------------------------------------------------------------------------------
+ * 
+ * How to run:
+ *      export LD_LIBRARY_PATH=../lib/gspar/bin:$LD_LIBRARY_PATH
+ *      clear && make clean && make ep CLASS=S GPU_DRIVER=CUDA && bin/ep.S 
+ *      clear && make clean && make ep CLASS=S GPU_DRIVER=OPENCL && bin/ep.S 
+ * 
+ * ------------------------------------------------------------------------------
  */
-
-// export LD_LIBRARY_PATH=../lib/gspar/bin:$LD_LIBRARY_PATH
-// clear && make clean && make ep CLASS=S GPU_DRIVER=CUDA && bin/ep.S 
-// clear && make clean && make ep CLASS=S GPU_DRIVER=OPENCL && bin/ep.S 
 
 #include <iostream>
 #include <chrono>
@@ -100,7 +103,7 @@ using namespace std;
 #define	S (271828183.0)
 #define NK_PLUS ((2*NK)+1)
 #define PROFILING_TOTAL_TIME (0)
-#define THREADS_PER_BLOCK (32)
+#define EP_THREADS_PER_BLOCK (32)
 
 /* global variables */
 #if defined(DO_NOT_ALLOCATE_ARRAYS_WITH_DYNAMIC_MEMORY_AND_AS_SINGLE_DIMENSION)
@@ -344,13 +347,11 @@ static void setup_gpu(){
 	auto gpus = driver->getGpuList();
 	device_name = gpus[0]->getName();
 	auto gpu = driver->getGpu(0);
-
 	amount_of_work = NN;
 
-	threads_per_block = THREADS_PER_BLOCK;
+	threads_per_block = EP_THREADS_PER_BLOCK;
 
-	blocks_per_grid = NN / threads_per_block;
-	if(blocks_per_grid == 0){blocks_per_grid=1;}
+	blocks_per_grid = (ceil((double)NN/(double)threads_per_block));
 
 	q_size = blocks_per_grid * NQ * sizeof(double);
 	sx_size = blocks_per_grid * sizeof(double);

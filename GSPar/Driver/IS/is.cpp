@@ -55,11 +55,14 @@
  *      Gabriell Araujo <hexenoften@gmail.com>
  *
  * ------------------------------------------------------------------------------
+ * 
+ * How to run:
+ *      export LD_LIBRARY_PATH=../lib/gspar/bin:$LD_LIBRARY_PATH
+ *      clear && make clean && make is CLASS=S GPU_DRIVER=CUDA && bin/is.S 
+ *      clear && make clean && make is CLASS=S GPU_DRIVER=OPENCL && bin/is.S 
+ * 
+ * ------------------------------------------------------------------------------
  */
-
-// export LD_LIBRARY_PATH=../lib/gspar/bin:$LD_LIBRARY_PATH
-// clear && make clean && make ep CLASS=S GPU_DRIVER=CUDA && bin/ep.S 
-// clear && make clean && make ep CLASS=S GPU_DRIVER=OPENCL && bin/ep.S 
 
 #include <iostream>
 #include <chrono>
@@ -79,7 +82,7 @@ using namespace GSPar::Driver::OpenCL;
 using namespace std;
 
 #define PROFILING_TOTAL_TIME (0)
-#define THREADS_PER_BLOCK (256)
+#define IS_THREADS_PER_BLOCK_ON_RANK 256
 
 /*****************************************************************/
 /* For serial IS, buckets are not really req'd to solve NPB1 IS  */
@@ -319,8 +322,8 @@ Kernel* kernel_rank_5;
 Kernel* kernel_rank_6;
 Kernel* kernel_rank_7;
 //
-static int sum_device[THREADS_PER_BLOCK*THREADS_PER_BLOCK];
-static int summ_device[THREADS_PER_BLOCK*THREADS_PER_BLOCK];
+static int sum_device[IS_THREADS_PER_BLOCK_ON_RANK*IS_THREADS_PER_BLOCK_ON_RANK];
+static int summ_device[IS_THREADS_PER_BLOCK_ON_RANK*IS_THREADS_PER_BLOCK_ON_RANK];
 //
 extern std::string kernel_source_rank_1;
 extern std::string kernel_source_rank_2;
@@ -838,7 +841,7 @@ static void setup_gpu(){
 
 	auto gpu = driver->getGpu(0);
 
-	threads_per_block_on_rank = THREADS_PER_BLOCK;
+	threads_per_block_on_rank = IS_THREADS_PER_BLOCK_ON_RANK;
 
 	threads_per_block_on_rank_1=1;
 	threads_per_block_on_rank_2=threads_per_block_on_rank;
@@ -871,7 +874,7 @@ static void setup_gpu(){
 	size_key_array_device = sizeof(int) * SIZE_OF_BUFFERS;
 	size_partial_verify_vals_device = sizeof(int) * TEST_ARRAY_SIZE;
 	size_key_buff1_device = sizeof(int) * MAX_KEY;
-	size_summ_device_device = sizeof(int) * THREADS_PER_BLOCK * THREADS_PER_BLOCK;
+	size_summ_device_device = sizeof(int) * IS_THREADS_PER_BLOCK_ON_RANK * IS_THREADS_PER_BLOCK_ON_RANK;
 	size_passed_verification_device = sizeof(int);
 
 	test_index_array_device = gpu->malloc(size_test_index_array_device, test_index_array);
@@ -890,7 +893,6 @@ static void setup_gpu(){
 	summ_device_device->copyIn();
 	passed_verification_device->copyIn();
 	
-
 	try {
 		std::string kernel_source_rank_1_complete = "\n";
 		kernel_source_rank_1_complete.append(source_additional_routines);
@@ -1100,40 +1102,29 @@ GSPAR_DEVICE_KERNEL void rank_gpu_kernel_1(
 	int MAX_ITERATIONS,
 	int MAX_KEY,
 	int TEST_ARRAY_SIZE){
-	//BEGIN
-
 	key_array[iteration] = iteration;
 	key_array[iteration+MAX_ITERATIONS] = MAX_KEY - iteration;
 	for(int i=0; i<TEST_ARRAY_SIZE; i++){
 		partial_verify_vals[i] = key_array[test_index_array[i]];
 	}
-
-	//END
 });
 
 std::string kernel_source_rank_2 = GSPAR_STRINGIZE_SOURCE(
 GSPAR_DEVICE_KERNEL void rank_gpu_kernel_2(
 	GSPAR_DEVICE_GLOBAL_MEMORY int* key_buff1){
-	//BEGIN
 
 	int thread_id = gspar_get_global_id(0);
 
 	key_buff1[thread_id] = 0;
-
-	//END
 });
 
 std::string kernel_source_rank_3 = GSPAR_STRINGIZE_SOURCE(
 GSPAR_DEVICE_KERNEL void rank_gpu_kernel_3(
 	GSPAR_DEVICE_GLOBAL_MEMORY int* key_buff1,
 	GSPAR_DEVICE_GLOBAL_MEMORY int* key_array){
-	//BEGIN
-
 	int thread_id = gspar_get_global_id(0);
 
 	gspar_atomic_add_int(&key_buff1[key_array[thread_id]], 1);
-
-	//END
 });
 
 std::string kernel_source_rank_4 = GSPAR_STRINGIZE_SOURCE(
@@ -1142,11 +1133,9 @@ GSPAR_DEVICE_KERNEL void rank_gpu_kernel_4(
 	GSPAR_DEVICE_GLOBAL_MEMORY int* sum,
 	int MAX_KEY,
 	int number_of_blocks){
-
-	//BEGIN
 	int thread_id = gspar_get_global_id(0);
 
-	GSPAR_DEVICE_SHARED_MEMORY int shared_data[2*1024];
+	GSPAR_DEVICE_SHARED_MEMORY int shared_data[2*IS_THREADS_PER_BLOCK_ON_RANK];
 
 	int* destiny = source;
 
@@ -1173,17 +1162,13 @@ GSPAR_DEVICE_KERNEL void rank_gpu_kernel_4(
 
 	gspar_synchronize_local_threads();
 	if(gspar_get_thread_id(0)==0){sum[gspar_get_block_id(0)]=destiny[end-1];}
-
-	//END
 });
 
 std::string kernel_source_rank_5 = GSPAR_STRINGIZE_SOURCE(
 GSPAR_DEVICE_KERNEL void rank_gpu_kernel_5(
 	GSPAR_DEVICE_GLOBAL_MEMORY int* source,
 	GSPAR_DEVICE_GLOBAL_MEMORY int* destiny){
-	//BEGIN
-
-	GSPAR_DEVICE_SHARED_MEMORY int shared_data[2*1024];
+	GSPAR_DEVICE_SHARED_MEMORY int shared_data[2*IS_THREADS_PER_BLOCK_ON_RANK];
 
 	shared_data[gspar_get_thread_id(0)] = 0;
 	int position = gspar_get_block_size(0) + gspar_get_thread_id(0);
@@ -1199,8 +1184,6 @@ GSPAR_DEVICE_KERNEL void rank_gpu_kernel_5(
 	gspar_synchronize_local_threads();
 
 	destiny[gspar_get_thread_id(0)] = shared_data[position - 1];
-	
-	//END
 });
 
 std::string kernel_source_rank_6 = GSPAR_STRINGIZE_SOURCE(
@@ -1209,8 +1192,6 @@ GSPAR_DEVICE_KERNEL void rank_gpu_kernel_6(
 	GSPAR_DEVICE_GLOBAL_MEMORY int* offset,
 	int MAX_KEY,
 	int number_of_blocks){
-	//BEGIN
-
 	int* destiny = source;
 	int factor = MAX_KEY / number_of_blocks;
 	int start = factor * gspar_get_block_id(0);
@@ -1219,8 +1200,6 @@ GSPAR_DEVICE_KERNEL void rank_gpu_kernel_6(
 	for(int i=start; i<end; i+=gspar_get_block_size(0)){
 		destiny[i + gspar_get_thread_id(0)] = source[i + gspar_get_thread_id(0)] + sum;
 	}
-
-	//END
 });
 
 std::string kernel_source_rank_7 = GSPAR_STRINGIZE_SOURCE(
@@ -1233,8 +1212,6 @@ GSPAR_DEVICE_KERNEL void rank_gpu_kernel_7(
 	int TEST_ARRAY_SIZE,
 	char CLASS,
 	int NUM_KEYS){
-	//BEGIN
-
 	int i, k;
 	int passed_verification = 0;
 	for(i=0; i<TEST_ARRAY_SIZE; i++){                                         
@@ -1330,11 +1307,7 @@ GSPAR_DEVICE_KERNEL void rank_gpu_kernel_7(
 	}
 
 	*passed_verification_device += passed_verification;
-
-	//END
 });
 
-std::string source_additional_routines = 
-"\n"
-"#define THREADS_PER_BLOCK 256"
-"\n";	
+std::string source_additional_routines =
+    "#define IS_THREADS_PER_BLOCK_ON_RANK " + std::to_string(IS_THREADS_PER_BLOCK_ON_RANK) + "\n";

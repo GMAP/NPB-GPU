@@ -55,11 +55,14 @@
  *      Gabriell Araujo <hexenoften@gmail.com>
  *
  * ------------------------------------------------------------------------------
+ * 
+ * How to run:
+ *      export LD_LIBRARY_PATH=../lib/gspar/bin:$LD_LIBRARY_PATH
+ *      clear && make clean && make cg CLASS=S GPU_DRIVER=CUDA && bin/cg.S 
+ *      clear && make clean && make cg CLASS=S GPU_DRIVER=OPENCL && bin/cg.S 
+ * 
+ * ------------------------------------------------------------------------------
  */
-
-// export LD_LIBRARY_PATH=../lib/gspar/bin:$LD_LIBRARY_PATH
-// clear && make clean && make ep CLASS=S GPU_DRIVER=CUDA && bin/ep.S 
-// clear && make clean && make ep CLASS=S GPU_DRIVER=OPENCL && bin/ep.S 
 
 #include <iostream>
 #include <chrono>
@@ -98,7 +101,17 @@ using namespace std;
 #define NZ (NA*(NONZER+1)*(NONZER+1))
 #define NAZ (NA*(NONZER+1))
 #define PROFILING_TOTAL_TIME (0)
-#define THREADS_PER_BLOCK (32)
+#define CG_THREADS_PER_BLOCK_ON_KERNEL_ONE 1024
+#define CG_THREADS_PER_BLOCK_ON_KERNEL_TWO 256
+#define CG_THREADS_PER_BLOCK_ON_KERNEL_THREE 64
+#define CG_THREADS_PER_BLOCK_ON_KERNEL_FOUR 256
+#define CG_THREADS_PER_BLOCK_ON_KERNEL_FIVE 64
+#define CG_THREADS_PER_BLOCK_ON_KERNEL_SIX 256
+#define CG_THREADS_PER_BLOCK_ON_KERNEL_SEVEN 512
+#define CG_THREADS_PER_BLOCK_ON_KERNEL_EIGHT 64
+#define CG_THREADS_PER_BLOCK_ON_KERNEL_NINE 512
+#define CG_THREADS_PER_BLOCK_ON_KERNEL_TEN 256
+#define CG_THREADS_PER_BLOCK_ON_KERNEL_ELEVEN 512
 
 /* global variables */
 #if defined(DO_NOT_ALLOCATE_ARRAYS_WITH_DYNAMIC_MEMORY_AND_AS_SINGLE_DIMENSION)
@@ -1083,17 +1096,17 @@ static void setup_gpu(){
 
 	auto gpu = driver->getGpu(0);
 
-	threads_per_block_on_kernel_one=THREADS_PER_BLOCK;
-	threads_per_block_on_kernel_two=THREADS_PER_BLOCK;
-	threads_per_block_on_kernel_three=THREADS_PER_BLOCK;
-	threads_per_block_on_kernel_four=THREADS_PER_BLOCK;
-	threads_per_block_on_kernel_five=THREADS_PER_BLOCK;
-	threads_per_block_on_kernel_six=THREADS_PER_BLOCK;
-	threads_per_block_on_kernel_seven=THREADS_PER_BLOCK;
-	threads_per_block_on_kernel_eight=THREADS_PER_BLOCK;
-	threads_per_block_on_kernel_nine=THREADS_PER_BLOCK;
-	threads_per_block_on_kernel_ten=THREADS_PER_BLOCK;
-	threads_per_block_on_kernel_eleven=THREADS_PER_BLOCK;
+	threads_per_block_on_kernel_one=CG_THREADS_PER_BLOCK_ON_KERNEL_ONE;
+	threads_per_block_on_kernel_two=CG_THREADS_PER_BLOCK_ON_KERNEL_TWO;
+	threads_per_block_on_kernel_three=CG_THREADS_PER_BLOCK_ON_KERNEL_THREE;
+	threads_per_block_on_kernel_four=CG_THREADS_PER_BLOCK_ON_KERNEL_FOUR;
+	threads_per_block_on_kernel_five=CG_THREADS_PER_BLOCK_ON_KERNEL_FIVE;
+	threads_per_block_on_kernel_six=CG_THREADS_PER_BLOCK_ON_KERNEL_SIX;
+	threads_per_block_on_kernel_seven=CG_THREADS_PER_BLOCK_ON_KERNEL_SEVEN;
+	threads_per_block_on_kernel_eight=CG_THREADS_PER_BLOCK_ON_KERNEL_EIGHT;
+	threads_per_block_on_kernel_nine=CG_THREADS_PER_BLOCK_ON_KERNEL_NINE;
+	threads_per_block_on_kernel_ten=CG_THREADS_PER_BLOCK_ON_KERNEL_TEN;
+	threads_per_block_on_kernel_eleven=CG_THREADS_PER_BLOCK_ON_KERNEL_ELEVEN;
 
 	amount_of_work_on_kernel_one = NA;
 	amount_of_work_on_kernel_two = NA;
@@ -1119,7 +1132,7 @@ static void setup_gpu(){
 	blocks_per_grid_on_kernel_ten=(ceil((double)NA/(double)threads_per_block_on_kernel_ten));
 	blocks_per_grid_on_kernel_eleven=(ceil((double)NA/(double)threads_per_block_on_kernel_eleven));
 
-	global_data_elements=ceil(double(NA)/double(THREADS_PER_BLOCK));
+	global_data_elements=ceil(double(NA)/double(gpu->getWarpSize()));
 
 	size_global_data=global_data_elements*sizeof(double);
 	size_colidx_device=NZ*sizeof(int);
@@ -1483,12 +1496,6 @@ static void driver_kernel_three(){
 
 static void driver_kernel_four(double* d_host){
 	try {
-		//for(int i=0; i<global_data_elements; i++){
-		//	global_data[i] = 0.0;
-		//	global_data_two[i] = 0.0;
-		//}
-		//global_data_device->copyIn();
-
 		int na_aux = NA;
 
 		/* kernel four */
@@ -1693,8 +1700,6 @@ GSPAR_DEVICE_KERNEL void driver_kernel_one_CG(
 	GSPAR_DEVICE_GLOBAL_MEMORY double* x, 
 	GSPAR_DEVICE_GLOBAL_MEMORY double* z,
 	int NA){
-	//BEGIN
-
 	int j = gspar_get_global_id(0);
 
 	if(j >= NA){return;}
@@ -1703,8 +1708,6 @@ GSPAR_DEVICE_KERNEL void driver_kernel_one_CG(
 	z[j] = 0.0;
 	r[j] = x[j];
 	p[j] = r[j];
-
-	//END
 });
 
 std::string kernel_source_cg_kernel_two = GSPAR_STRINGIZE_SOURCE(
@@ -1712,10 +1715,7 @@ GSPAR_DEVICE_KERNEL void driver_kernel_two_CG(
 	GSPAR_DEVICE_GLOBAL_MEMORY double r[],
 	GSPAR_DEVICE_GLOBAL_MEMORY double global_data[],
 	int NA){
-	//BEGIN
-
-	//double* share_data = (double*)extern_share_data;
-	GSPAR_DEVICE_SHARED_MEMORY double share_data[THREADS_PER_BLOCK];
+	GSPAR_DEVICE_SHARED_MEMORY double share_data[CG_THREADS_PER_BLOCK_ON_KERNEL_TWO];
 
 	int thread_id = gspar_get_global_id(0);
 	int local_id = gspar_get_thread_id(0);
@@ -1733,8 +1733,6 @@ GSPAR_DEVICE_KERNEL void driver_kernel_two_CG(
 		gspar_synchronize_local_threads();
 	}
 	if(local_id==0){global_data[gspar_get_block_id(0)]=share_data[0];}	
-
-	//END
 });
 
 std::string kernel_source_cg_kernel_three = GSPAR_STRINGIZE_SOURCE(
@@ -1744,12 +1742,8 @@ GSPAR_DEVICE_KERNEL void driver_kernel_three_CG(
 	GSPAR_DEVICE_GLOBAL_MEMORY double a[], 
 	GSPAR_DEVICE_GLOBAL_MEMORY double p[], 
 	GSPAR_DEVICE_GLOBAL_MEMORY double q[]){
-	//BEGIN
-
-	//double* share_data = (double*)extern_share_data;
-	GSPAR_DEVICE_SHARED_MEMORY double share_data[THREADS_PER_BLOCK];
-
-	//int j = (int) ((gspar_get_block_id(0)*gspar_get_block_size(0)+gspar_get_thread_id(0)) / gspar_get_block_size(0));
+	GSPAR_DEVICE_SHARED_MEMORY double share_data[CG_THREADS_PER_BLOCK_ON_KERNEL_THREE];
+	
 	int j = gspar_get_block_id(0);
 	int local_id = gspar_get_thread_id(0);
 
@@ -1767,8 +1761,6 @@ GSPAR_DEVICE_KERNEL void driver_kernel_three_CG(
 		gspar_synchronize_local_threads();
 	}
 	if(local_id==0){q[j]=share_data[0];}
-
-	//END
 });
 
 std::string kernel_source_cg_kernel_four = GSPAR_STRINGIZE_SOURCE(
@@ -1777,11 +1769,8 @@ GSPAR_DEVICE_KERNEL void driver_kernel_four_CG(
 	GSPAR_DEVICE_GLOBAL_MEMORY double* p, 
 	GSPAR_DEVICE_GLOBAL_MEMORY double* q, 
 	GSPAR_DEVICE_GLOBAL_MEMORY double global_data[],
-	int NA){
-	//BEGIN
-
-	//double* share_data = (double*)extern_share_data; 
-	GSPAR_DEVICE_SHARED_MEMORY double share_data[THREADS_PER_BLOCK];
+	int NA){ 
+	GSPAR_DEVICE_SHARED_MEMORY double share_data[CG_THREADS_PER_BLOCK_ON_KERNEL_FOUR];
 
 	int thread_id = gspar_get_global_id(0);
 	int local_id = gspar_get_thread_id(0);
@@ -1798,8 +1787,6 @@ GSPAR_DEVICE_KERNEL void driver_kernel_four_CG(
 		gspar_synchronize_local_threads();
 	}
 	if(local_id==0){global_data[gspar_get_block_id(0)]=share_data[0];}
-
-	//END
 });
 
 std::string kernel_source_cg_kernel_five = GSPAR_STRINGIZE_SOURCE(
@@ -1810,16 +1797,12 @@ GSPAR_DEVICE_KERNEL void driver_kernel_five_CG(
 	GSPAR_DEVICE_GLOBAL_MEMORY double* z,	
 	double alpha, 	
 	int NA){
-	//BEGIN
-
 	int j = gspar_get_global_id(0);
 
 	if(j >= NA){return;}
 
 	z[j] = z[j] + alpha*p[j];
 	r[j] = r[j] - alpha*q[j];
-	
-	//END
 });
 
 std::string kernel_source_cg_kernel_six = GSPAR_STRINGIZE_SOURCE(
@@ -1827,10 +1810,7 @@ GSPAR_DEVICE_KERNEL void driver_kernel_six_CG(
 	GSPAR_DEVICE_GLOBAL_MEMORY double r[], 
 	GSPAR_DEVICE_GLOBAL_MEMORY double global_data[],
 	int NA){
-	//BEGIN
-
-	//double* share_data = (double*)extern_share_data;
-	GSPAR_DEVICE_SHARED_MEMORY double share_data[THREADS_PER_BLOCK];
+	GSPAR_DEVICE_SHARED_MEMORY double share_data[CG_THREADS_PER_BLOCK_ON_KERNEL_SIX];
 
 	int thread_id = gspar_get_global_id(0);
 	int local_id = gspar_get_thread_id(0);
@@ -1846,8 +1826,6 @@ GSPAR_DEVICE_KERNEL void driver_kernel_six_CG(
 		gspar_synchronize_local_threads();
 	}
 	if(local_id==0){global_data[gspar_get_block_id(0)]=share_data[0];}
-
-	//END
 });
 
 std::string kernel_source_cg_kernel_seven = GSPAR_STRINGIZE_SOURCE(
@@ -1856,15 +1834,11 @@ GSPAR_DEVICE_KERNEL void driver_kernel_seven_CG(
 	GSPAR_DEVICE_GLOBAL_MEMORY double* p, 
 	GSPAR_DEVICE_GLOBAL_MEMORY double* r,
 	int NA){
-	//BEGIN
-
 	int j = gspar_get_global_id(0);
 
 	if(j >= NA){return;}
 
 	p[j] = r[j] + beta*p[j];
-
-	//END
 });
 
 std::string kernel_source_cg_kernel_eight = GSPAR_STRINGIZE_SOURCE(
@@ -1874,12 +1848,9 @@ GSPAR_DEVICE_KERNEL void driver_kernel_eight_CG(
 	GSPAR_DEVICE_GLOBAL_MEMORY double a[], 
 	GSPAR_DEVICE_GLOBAL_MEMORY double r[], 
 	GSPAR_DEVICE_GLOBAL_MEMORY double* z){
-	//BEGIN
+	GSPAR_DEVICE_SHARED_MEMORY double share_data[CG_THREADS_PER_BLOCK_ON_KERNEL_EIGHT];
 
-	//double* share_data = (double*)extern_share_data;
-	GSPAR_DEVICE_SHARED_MEMORY double share_data[THREADS_PER_BLOCK];
-
-	int j = (int) ((gspar_get_block_id(0)*gspar_get_block_size(0)+gspar_get_thread_id(0)) / gspar_get_block_size(0));
+	int j = gspar_get_block_id(0);
 	int local_id = gspar_get_thread_id(0);
 
 	int begin = rowstr[j];
@@ -1896,8 +1867,6 @@ GSPAR_DEVICE_KERNEL void driver_kernel_eight_CG(
 		gspar_synchronize_local_threads();
 	}
 	if(local_id==0){r[j]=share_data[0];}
-
-	//END
 });
 
 std::string kernel_source_cg_kernel_nine = GSPAR_STRINGIZE_SOURCE(
@@ -1906,10 +1875,7 @@ GSPAR_DEVICE_KERNEL void driver_kernel_nine_CG(
 	GSPAR_DEVICE_GLOBAL_MEMORY double x[], 
 	GSPAR_DEVICE_GLOBAL_MEMORY double global_data[],
 	int NA){
-	//BEGIN
-
-	//double* share_data = (double*)extern_share_data;
-	GSPAR_DEVICE_SHARED_MEMORY double share_data[THREADS_PER_BLOCK];
+	GSPAR_DEVICE_SHARED_MEMORY double share_data[CG_THREADS_PER_BLOCK_ON_KERNEL_NINE];
 
 	int thread_id = gspar_get_global_id(0);
 	int local_id = gspar_get_thread_id(0);
@@ -1927,8 +1893,6 @@ GSPAR_DEVICE_KERNEL void driver_kernel_nine_CG(
 		gspar_synchronize_local_threads();
 	}
 	if(local_id==0){global_data[gspar_get_block_id(0)]=share_data[0];}
-
-	//END
 });
 
 std::string kernel_source_cg_kernel_ten = GSPAR_STRINGIZE_SOURCE(
@@ -1938,10 +1902,8 @@ GSPAR_DEVICE_KERNEL void driver_kernel_ten_CG(
 	GSPAR_DEVICE_GLOBAL_MEMORY double* x, 
 	GSPAR_DEVICE_GLOBAL_MEMORY double* z,
 	int NA){
-	//BEGIN
-
-	GSPAR_DEVICE_SHARED_MEMORY double share_data_1[THREADS_PER_BLOCK];
-	GSPAR_DEVICE_SHARED_MEMORY double share_data_2[THREADS_PER_BLOCK];
+	GSPAR_DEVICE_SHARED_MEMORY double share_data_1[CG_THREADS_PER_BLOCK_ON_KERNEL_TEN];
+	GSPAR_DEVICE_SHARED_MEMORY double share_data_2[CG_THREADS_PER_BLOCK_ON_KERNEL_TEN];
 
 	int thread_id = gspar_get_global_id(0);
 	int local_id = gspar_get_thread_id(0);
@@ -1964,8 +1926,6 @@ GSPAR_DEVICE_KERNEL void driver_kernel_ten_CG(
 	if(local_id==0){
 		norm_temp1[gspar_get_block_id(0)]=share_data_1[0];
 		norm_temp2[gspar_get_block_id(0)]=share_data_2[0];}
-
-	//END
 });
 
 std::string kernel_source_cg_kernel_eleven = GSPAR_STRINGIZE_SOURCE(
@@ -1974,18 +1934,22 @@ GSPAR_DEVICE_KERNEL void driver_kernel_eleven_CG(
 	GSPAR_DEVICE_GLOBAL_MEMORY double* z,
 	double norm_temp2,
 	int NA){
-	//BEGIN
-
 	int j = gspar_get_global_id(0);
 
 	if(j >= NA){return;}
 
 	x[j] = norm_temp2 * z[j];
-
-	//END
 });
 
-std::string source_additional_routines = 
-"\n"
-"#define THREADS_PER_BLOCK 32"
-"\n";
+std::string source_additional_routines =
+    "#define CG_THREADS_PER_BLOCK_ON_KERNEL_ONE " + std::to_string(CG_THREADS_PER_BLOCK_ON_KERNEL_ONE) + "\n" +
+    "#define CG_THREADS_PER_BLOCK_ON_KERNEL_TWO " + std::to_string(CG_THREADS_PER_BLOCK_ON_KERNEL_TWO) + "\n" +
+    "#define CG_THREADS_PER_BLOCK_ON_KERNEL_THREE " + std::to_string(CG_THREADS_PER_BLOCK_ON_KERNEL_THREE) + "\n" +
+    "#define CG_THREADS_PER_BLOCK_ON_KERNEL_FOUR " + std::to_string(CG_THREADS_PER_BLOCK_ON_KERNEL_FOUR) + "\n" +
+    "#define CG_THREADS_PER_BLOCK_ON_KERNEL_FIVE " + std::to_string(CG_THREADS_PER_BLOCK_ON_KERNEL_FIVE) + "\n" +
+    "#define CG_THREADS_PER_BLOCK_ON_KERNEL_SIX " + std::to_string(CG_THREADS_PER_BLOCK_ON_KERNEL_SIX) + "\n" +
+    "#define CG_THREADS_PER_BLOCK_ON_KERNEL_SEVEN " + std::to_string(CG_THREADS_PER_BLOCK_ON_KERNEL_SEVEN) + "\n" +
+    "#define CG_THREADS_PER_BLOCK_ON_KERNEL_EIGHT " + std::to_string(CG_THREADS_PER_BLOCK_ON_KERNEL_EIGHT) + "\n" +
+    "#define CG_THREADS_PER_BLOCK_ON_KERNEL_NINE " + std::to_string(CG_THREADS_PER_BLOCK_ON_KERNEL_NINE) + "\n" +
+    "#define CG_THREADS_PER_BLOCK_ON_KERNEL_TEN " + std::to_string(CG_THREADS_PER_BLOCK_ON_KERNEL_TEN) + "\n" +
+    "#define CG_THREADS_PER_BLOCK_ON_KERNEL_ELEVEN " + std::to_string(CG_THREADS_PER_BLOCK_ON_KERNEL_ELEVEN) + "\n";

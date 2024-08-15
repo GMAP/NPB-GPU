@@ -57,11 +57,14 @@
  *      Gabriell Araujo <hexenoften@gmail.com>
  *
  * ------------------------------------------------------------------------------
- */
-
-// export LD_LIBRARY_PATH=../lib/gspar/bin:$LD_LIBRARY_PATH
-// clear && make clean && make ep CLASS=S GPU_DRIVER=CUDA && bin/ep.S 
-// clear && make clean && make ep CLASS=S GPU_DRIVER=OPENCL && bin/ep.S 
+ * 
+ * How to run:
+ *      export LD_LIBRARY_PATH=../lib/gspar/bin:$LD_LIBRARY_PATH
+ *      clear && make clean && make mg CLASS=S GPU_DRIVER=CUDA && bin/mg.S 
+ *      clear && make clean && make mg CLASS=S GPU_DRIVER=OPENCL && bin/mg.S 
+ * 
+ * ------------------------------------------------------------------------------
+ */ 
 
 #include <iostream>
 #include <chrono>
@@ -89,7 +92,13 @@ using namespace std;
 #define	A (pow(5.0,13.0))
 #define	X (314159265.0)
 #define PROFILING_TOTAL_TIME (0)
-#define THREADS_PER_BLOCK (1024)
+#define MG_THREADS_PER_BLOCK_ON_COMM3 1024
+#define MG_THREADS_PER_BLOCK_ON_INTERP 32
+#define MG_THREADS_PER_BLOCK_ON_NORM2U3 32
+#define MG_THREADS_PER_BLOCK_ON_PSINV 1024
+#define MG_THREADS_PER_BLOCK_ON_RESID 512
+#define MG_THREADS_PER_BLOCK_ON_RPRJ3 512
+#define MG_THREADS_PER_BLOCK_ON_ZERO3 128
 
 /* global variables */
 #if defined(DO_NOT_ALLOCATE_ARRAYS_WITH_DYNAMIC_MEMORY_AND_AS_SINGLE_DIMENSION)
@@ -716,8 +725,8 @@ static void comm3_gpu(
 		int n3, 
 		int kk,
 		int offset){
-	threads_per_block = THREADS_PER_BLOCK;
-	amount_of_work = (n3-2) * THREADS_PER_BLOCK;
+	threads_per_block = MG_THREADS_PER_BLOCK_ON_COMM3;
+	amount_of_work = (n3-2) * MG_THREADS_PER_BLOCK_ON_COMM3;
 	blocks_per_grid = (ceil((double)(amount_of_work)/(double)(threads_per_block)));
 
 	try {	
@@ -739,8 +748,8 @@ static void comm3_gpu(
 		exit(-1);
 	}
 
-	threads_per_block = THREADS_PER_BLOCK;
-	amount_of_work = (n3-2) * THREADS_PER_BLOCK;	
+	threads_per_block = MG_THREADS_PER_BLOCK_ON_COMM3;
+	amount_of_work = (n3-2) * MG_THREADS_PER_BLOCK_ON_COMM3;	
 	blocks_per_grid = (ceil((double)(amount_of_work)/(double)(threads_per_block)));
 
 	try {	
@@ -762,8 +771,8 @@ static void comm3_gpu(
 		exit(-1);
 	}
 
-	threads_per_block = THREADS_PER_BLOCK;
-	amount_of_work = n2 * THREADS_PER_BLOCK;
+	threads_per_block = MG_THREADS_PER_BLOCK_ON_COMM3;
+	amount_of_work = n2 * MG_THREADS_PER_BLOCK_ON_COMM3;
 	blocks_per_grid = (ceil((double)(amount_of_work)/(double)(threads_per_block)));
 
 	try {	
@@ -1181,7 +1190,7 @@ static void norm2u3_gpu(
 	s=0.0;
 	max_rnmu=0.0;
 
-	threads_per_block = THREADS_PER_BLOCK;
+	threads_per_block = MG_THREADS_PER_BLOCK_ON_NORM2U3;
 	amount_of_work = (n2-2) * (n3-2) * threads_per_block;
 	blocks_per_grid = (ceil((double)(amount_of_work)/(double)(threads_per_block)));
 
@@ -1345,7 +1354,7 @@ static void psinv_gpu(
 		int k,
 		int offset_1,
 		int offset_2){
-	threads_per_block = n1 > THREADS_PER_BLOCK ? THREADS_PER_BLOCK : n1;
+	threads_per_block = n1 > MG_THREADS_PER_BLOCK_ON_PSINV ? MG_THREADS_PER_BLOCK_ON_PSINV : n1;
 	amount_of_work = (n3-2) * (n2-2) * threads_per_block;
 	blocks_per_grid = (ceil((double)(amount_of_work)/(double)(threads_per_block)));
 
@@ -1486,7 +1495,7 @@ static void resid_gpu(
 		int offset_1,
 		int offset_2,
 		int offset_3){
-	threads_per_block = n1 > THREADS_PER_BLOCK ? THREADS_PER_BLOCK : n1;
+	threads_per_block = n1 > MG_THREADS_PER_BLOCK_ON_RESID ? MG_THREADS_PER_BLOCK_ON_RESID : n1;
 	amount_of_work = (n3-2) * (n2-2) * threads_per_block;
 	blocks_per_grid = (ceil((double)(amount_of_work)/(double)(threads_per_block)));
 
@@ -1766,7 +1775,7 @@ static void setup_gpu(
 	v_device->copyIn();
 	r_device->copyIn();	
 
-	source_additional_routines_complete = source_additional_routines + std::to_string(M) + "\n";
+	source_additional_routines_complete = source_additional_routines + "\n";
 
 	try {
 		std::string kernel_source_comm3_1_complete = "\n";
@@ -1909,7 +1918,7 @@ static void zero3_gpu(MemoryObject* base_z_device,
 		int n2, 
 		int n3,
 		int offset){
-	threads_per_block = THREADS_PER_BLOCK;
+	threads_per_block = MG_THREADS_PER_BLOCK_ON_ZERO3;
 	amount_of_work = n1*n2*n3;	
 	blocks_per_grid = (ceil((double)(amount_of_work)/(double)(threads_per_block)));
 
@@ -2079,8 +2088,6 @@ GSPAR_DEVICE_KERNEL void comm3_gpu_kernel_1(
 		int n3, 
 		int amount_of_work,
 		int offset){
-	// BEGIN
-
 	int check=gspar_get_global_id(0);
 	if(check>=amount_of_work){return;}
 
@@ -2094,8 +2101,6 @@ GSPAR_DEVICE_KERNEL void comm3_gpu_kernel_1(
 		u[i3*n2*n1+i2*n1+n1-1]=u[i3*n2*n1+i2*n1+1];
 		i2+=gspar_get_block_size(0);
 	}
-
-	// END
 });
 
 std::string kernel_source_comm3_2 = GSPAR_STRINGIZE_SOURCE(
@@ -2106,8 +2111,6 @@ GSPAR_DEVICE_KERNEL void comm3_gpu_kernel_2(
 		int n3,
 		int amount_of_work,
 		int offset){
-	// BEGIN
-
 	int check=gspar_get_global_id(0);
 	if(check>=amount_of_work){return;}
 
@@ -2121,8 +2124,6 @@ GSPAR_DEVICE_KERNEL void comm3_gpu_kernel_2(
 		u[i3*n2*n1+(n2-1)*n1+i1]=u[i3*n2*n1+1*n1+i1];
 		i1+=gspar_get_block_size(0);
 	}
-
-	// END
 });
 
 std::string kernel_source_comm3_3 = GSPAR_STRINGIZE_SOURCE(
@@ -2133,8 +2134,6 @@ GSPAR_DEVICE_KERNEL void comm3_gpu_kernel_3(
 		int n3, 
 		int amount_of_work,
 		int offset){
-	// BEGIN
-
 	int check=gspar_get_global_id(0);
 	if(check>=amount_of_work){return;}
 
@@ -2148,8 +2147,6 @@ GSPAR_DEVICE_KERNEL void comm3_gpu_kernel_3(
 		u[(n3-1)*n2*n1+i2*n1+i1]=u[1*n2*n1+i2*n1+i1];
 		i1+=gspar_get_block_size(0);
 	}
-
-	// END
 });
 
 std::string kernel_source_interp = GSPAR_STRINGIZE_SOURCE(
@@ -2165,8 +2162,6 @@ GSPAR_DEVICE_KERNEL void interp_gpu_kernel(
 		int amount_of_work,
 		int offset_1,
 		int offset_2){
-	// BEGIN
-
 	int check=gspar_get_global_id(0);
 	if(check>=amount_of_work){return;}	
 
@@ -2198,8 +2193,6 @@ GSPAR_DEVICE_KERNEL void interp_gpu_kernel(
 		u[(2*i3+1)*n2*n1+(2*i2+1)*n1+2*i1]+=0.25*z3[i1];
 		u[(2*i3+1)*n2*n1+(2*i2+1)*n1+2*i1+1]+=0.125*(z3[i1]+z3[i1+1]);
 	}
-
-	// END
 });
 
 std::string kernel_source_norm2u3 = GSPAR_STRINGIZE_SOURCE(
@@ -2212,13 +2205,11 @@ GSPAR_DEVICE_KERNEL void norm2u3_gpu_kernel(
 		GSPAR_DEVICE_GLOBAL_MEMORY double* res_max,
 		int number_of_blocks,
 		int amount_of_work){
-	// BEGIN 
-
 	int check=gspar_get_global_id(0);
 	if(check>=amount_of_work){return;}
 	
-	GSPAR_DEVICE_SHARED_MEMORY double scratch_sum[THREADS_PER_BLOCK];
-	GSPAR_DEVICE_SHARED_MEMORY double scratch_max[THREADS_PER_BLOCK];
+	GSPAR_DEVICE_SHARED_MEMORY double scratch_sum[MG_THREADS_PER_BLOCK_ON_NORM2U3];
+	GSPAR_DEVICE_SHARED_MEMORY double scratch_max[MG_THREADS_PER_BLOCK_ON_NORM2U3];
 
 	int i3=gspar_get_block_id(0)/(n2-2)+1;
 	int i2=gspar_get_block_id(0)%(n2-2)+1;
@@ -2253,8 +2244,6 @@ GSPAR_DEVICE_KERNEL void norm2u3_gpu_kernel(
 		res_sum[idx]=scratch_sum[0];
 		res_max[idx]=scratch_max[0];
 	}
-
-	// END
 });
 
 std::string kernel_source_psinv = GSPAR_STRINGIZE_SOURCE(
@@ -2268,8 +2257,6 @@ GSPAR_DEVICE_KERNEL void psinv_gpu_kernel(
 		int amount_of_work,
 		int offset_1,
 		int offset_2){
-	// BEGIN
-
 	int check=gspar_get_global_id(0);
 	if(check>=amount_of_work){return;}
 
@@ -2301,8 +2288,6 @@ GSPAR_DEVICE_KERNEL void psinv_gpu_kernel(
 					+r1[i1])
 			+c[2]*(r2[i1]+r1[i1-1]+r1[i1+1] );
 	}
-
-	// END
 });
 
 std::string kernel_source_resid = GSPAR_STRINGIZE_SOURCE(
@@ -2318,8 +2303,6 @@ GSPAR_DEVICE_KERNEL void resid_gpu_kernel(
 		int offset_1,
 		int offset_2,
 		int offset_3){
-	// BEGIN
-
 	int check=gspar_get_global_id(0);
 	if(check>=amount_of_work){return;}
 
@@ -2350,8 +2333,6 @@ GSPAR_DEVICE_KERNEL void resid_gpu_kernel(
 			-a[2]*(u2[i1]+u1[i1-1]+u1[i1+1])
 			-a[3]*(u2[i1-1]+u2[i1+1] );
 	}
-
-	// END
 });
 
 std::string kernel_source_rprj3 = GSPAR_STRINGIZE_SOURCE(
@@ -2370,8 +2351,6 @@ GSPAR_DEVICE_KERNEL void rprj3_gpu_kernel(
 		int amount_of_work,
 		int offset_1,
 		int offset_2){
-	// BEGIN
-
 	int check=gspar_get_global_id(0);
 	if(check>=amount_of_work){return;}
 
@@ -2379,9 +2358,11 @@ GSPAR_DEVICE_KERNEL void rprj3_gpu_kernel(
 	GSPAR_DEVICE_GLOBAL_MEMORY double* s = base_s + offset_2;
 
 	int j3,j2,j1,i3,i2,i1;
-	double x2,y2;
+	double x2,y2;	
 	
-	GSPAR_DEVICE_SHARED_MEMORY double x1[M],y1[M];
+	GSPAR_DEVICE_SHARED_MEMORY double x1[M];
+	// #todo >>> bug >>> GSPar does not accept variable named as y1
+	GSPAR_DEVICE_SHARED_MEMORY double yy1[M];
 
 	j3=gspar_get_block_id(0)/(m2j-2)+1;
 	j2=gspar_get_block_id(0)%(m2j-2)+1;
@@ -2394,7 +2375,7 @@ GSPAR_DEVICE_KERNEL void rprj3_gpu_kernel(
 		+r[(i3+1)*m2k*m1k+(i2+2)*m1k+i1]
 		+r[i3*m2k*m1k+(i2+1)*m1k+i1]
 		+r[(i3+2)*m2k*m1k+(i2+1)*m1k+i1];
-	y1[i1]=r[i3*m2k*m1k+i2*m1k+i1]
+	yy1[i1]=r[i3*m2k*m1k+i2*m1k+i1]
 		+r[(i3+2)*m2k*m1k+i2*m1k+i1]
 		+r[i3*m2k*m1k+(i2+2)*m1k+i1]
 		+r[(i3+2)*m2k*m1k+(i2+2)*m1k+i1];		
@@ -2414,10 +2395,8 @@ GSPAR_DEVICE_KERNEL void rprj3_gpu_kernel(
 			+0.25*(r[(i3+1)*m2k*m1k+(i2+1)*m1k+i1]
 					+r[(i3+1)*m2k*m1k+(i2+1)*m1k+i1+2]+x2)
 			+0.125*(x1[i1]+x1[i1+2]+y2)
-			+0.0625*(y1[i1]+y1[i1+2]);
+			+0.0625*(yy1[i1]+yy1[i1+2]);
 	}
-
-	// END
 });
 
 std::string kernel_source_zero3 = GSPAR_STRINGIZE_SOURCE(
@@ -2440,10 +2419,12 @@ GSPAR_DEVICE_KERNEL void zero3_gpu_kernel(
 
 std::string source_additional_routines_complete = "\n";
 
-std::string source_additional_routines = 
-"\n"
-"#define WARP_SIZE 32\n"
-"#define MAX_THREADS_PER_BLOCK 1024\n"
-"#define THREADS_PER_BLOCK 1024\n"
-"\n"
-"#define M ";
+std::string source_additional_routines =
+    "#define M " + std::to_string(M) + "\n" +    
+	"#define MG_THREADS_PER_BLOCK_ON_COMM3 " + std::to_string(MG_THREADS_PER_BLOCK_ON_COMM3) + "\n" +
+    "#define MG_THREADS_PER_BLOCK_ON_INTERP " + std::to_string(MG_THREADS_PER_BLOCK_ON_INTERP) + "\n" +
+    "#define MG_THREADS_PER_BLOCK_ON_NORM2U3 " + std::to_string(MG_THREADS_PER_BLOCK_ON_NORM2U3) + "\n" +
+    "#define MG_THREADS_PER_BLOCK_ON_PSINV " + std::to_string(MG_THREADS_PER_BLOCK_ON_PSINV) + "\n" +
+    "#define MG_THREADS_PER_BLOCK_ON_RESID " + std::to_string(MG_THREADS_PER_BLOCK_ON_RESID) + "\n" +
+    "#define MG_THREADS_PER_BLOCK_ON_RPRJ3 " + std::to_string(MG_THREADS_PER_BLOCK_ON_RPRJ3) + "\n" +
+    "#define MG_THREADS_PER_BLOCK_ON_ZERO3 " + std::to_string(MG_THREADS_PER_BLOCK_ON_ZERO3) + "\n";
