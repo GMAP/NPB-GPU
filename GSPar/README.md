@@ -17,13 +17,15 @@ This is a repository aimed at providing GPU parallel codes with different parall
 
 [DOI](https://doi.org/10.1109/PDP50117.2020.00009) - Araujo, G.; Griebler, D.; Danelutto, M.; Fernandes, L. G.; **Efficient NAS Benchmark Kernels with CUDA**. *28th Euromicro International Conference on Parallel, Distributed and Network-based Processing (PDP)*, Västerås, 2020. 
   
-## The NPB with CUDA
+## The NPB with GSParLib API
 
-The parallel CUDA version was implemented from the serial version of [NPB-CPP](https://github.com/GMAP/NPB-CPP).
+[GSParLib API](https://github.com/GMAP/GSParLib) is a C++ object-oriented multi-level API unifying OpenCL and CUDA for GPU programming that allows code portability between different GPU platforms and targets stream and data parallelism. GSParLib is organized into two APIs: 1) Driver API is a wrapper over CUDA and OpenCL; 2) Pattern API is a set of algorithmic skeletons.
+
+The NPB parallel version using the GSParLib API was implemented from the serial version of [NPB-CPP](https://github.com/GMAP/NPB-CPP).
 
 ==================================================================
 
-NAS Parallel Benchmarks code contributors with CUDA are:
+NAS Parallel Benchmarks code contributors with GSParLib API are:
 
 Dalvan Griebler: dalvan.griebler@pucrs.br
 
@@ -50,31 +52,19 @@ Each directory is independent and contains its own implemented version:
 
 ## Software Requiriments
 
-*Warning: our tests were made with GCC and CUDA*
+*Warning: our tests were made with G++ and CUDA*
 
-## How to Compile
+## How to Compile and Run
 
-1. Update the make.def file with the compute capability of the GPU you want to use to compile and run the NPB-GPU:
+1. Go inside the `GSPar` directory and execute the script `setup.sh` to download and install the GSParLib API:
+    ```
+    ./setup.sh
+    ```
 
-    1. Check the number of available NVIDIA GPUs by executing the following command:
-        ```
-        nvidia-smi --query-gpu=index --format=csv,noheader,nounits | wc -l
-        ```
-
-    2. Find the compute capability of the GPU you want to use by executing the following command (replace GPU_ID with the actual GPU ID):
-        ```
-        nvidia-smi -i GPU_ID --query-gpu=compute_cap --format=csv,noheader,nounits
-        ```
-
-    3. Update the `make.def` file by replacing `61` in the following line with the value of GPU compute compute capability you obtained:
-        ```
-        COMPUTE_CAPABILITY = -gencode arch=compute_61,code=sm_61
-        ```
-
-2. Go inside the `CUDA` directory and execute:
+2. Go inside the `Driver` or `Pattern` directory and execute:
 
     ```
-    make _BENCHMARK CLASS=_VERSION
+    make _BENCHMARK CLASS=_VERSION GPU_DRIVER=_GPU_BACKEND
     ```
 
     `_BENCHMARKs` are:
@@ -92,47 +82,19 @@ Each directory is independent and contains its own implemented version:
         + Classes A, B, C: standard test problems; ~4X size increase going from one class to the next
 
         + Classes D, E, F: large test problems; ~16X size increase from each of the previous Classes
-
+        
+    `_GPU_BACKENDs` are:
+    
+        CUDA and OPENCL
 
     Command example:
 
     ```
-    make ep CLASS=B
+    make ep CLASS=B GPU_DRIVER=CUDA
     ```
-  
+    
+3. Export GSParLib path before executing the benchmark:
 
-## Activating the additional timers
-
-NPB-GPU has additional timers for profiling purpose. To activate these timers, create a dummy file 'timer.flag' in the main directory of the NPB version (e.g. CUDA/timer.flag).
-
-## Configuring the number of threads per block
-
-NPB-GPU allows configuring the number of threads per block of each GPU kernel in the benchmarks. The user can specify the number of threads per block by editing the file gpu.config in the directory <API>/config/. If no file is specified, all GPU kernels are executed using the warp size of the GPU as the number of threads per block.
-
-Syntax of the gpu.config file: 
-
-```
-<benchmark-name>_THREADS_PER_BLOCK_<gpu-kernel-name> = <interger-value>
-```
-
-Configuring CG benchmark as example:
-
-```
-CG_THREADS_PER_BLOCK_ON_KERNEL_ONE = 32
-CG_THREADS_PER_BLOCK_ON_KERNEL_TWO = 128
-CG_THREADS_PER_BLOCK_ON_KERNEL_THREE = 64
-CG_THREADS_PER_BLOCK_ON_KERNEL_FOUR = 256
-CG_THREADS_PER_BLOCK_ON_KERNEL_FIVE = 32
-CG_THREADS_PER_BLOCK_ON_KERNEL_SIX = 64
-CG_THREADS_PER_BLOCK_ON_KERNEL_SEVEN = 128
-CG_THREADS_PER_BLOCK_ON_KERNEL_EIGHT = 64
-CG_THREADS_PER_BLOCK_ON_KERNEL_NINE = 512
-CG_THREADS_PER_BLOCK_ON_KERNEL_TEN = 512
-CG_THREADS_PER_BLOCK_ON_KERNEL_ELEVEN = 1024
-```
-
-The NPB-GPU also allows changing the GPU device by providing the following syntax in the gpu.config file:
-
-```
-GPU_DEVICE = <interger-value>
-```
+    ```
+    export LD_LIBRARY_PATH=<NPB_GPU_PATH>/GSPar/lib/gspar/bin:$LD_LIBRARY_PATH
+    ```
