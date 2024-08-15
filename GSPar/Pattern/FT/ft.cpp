@@ -55,11 +55,14 @@
  *      Gabriell Araujo <hexenoften@gmail.com>
  *
  * ------------------------------------------------------------------------------
+ * 
+ * How to run:
+ *      export LD_LIBRARY_PATH=../lib/gspar/bin:$LD_LIBRARY_PATH
+ *      clear && make clean && make ft CLASS=S GPU_DRIVER=CUDA && bin/ft.S 
+ *      clear && make clean && make ft CLASS=S GPU_DRIVER=OPENCL && bin/ft.S 
+ * 
+ * ------------------------------------------------------------------------------
  */
-
-// export LD_LIBRARY_PATH=../lib/gspar/bin:$LD_LIBRARY_PATH
-// clear && make clean && make ep CLASS=S GPU_DRIVER=CUDA && bin/ep.S 
-// clear && make clean && make ep CLASS=S GPU_DRIVER=OPENCL && bin/ep.S 
 
 #include <iostream>
 #include <chrono>
@@ -157,9 +160,20 @@ using namespace std;
 #define TASK_INIT_UI (2)
 #define PROFILING_TOTAL_TIME (0)
 #define CHECKSUM_TASKS (1024)
-#define WARP_SIZE (32)
-#define MAX_THREADS_PER_BLOCK (1024)
-#define THREADS_PER_BLOCK (1024)
+#define FT_THREADS_PER_BLOCK_ON_CHECKSUM 32
+#define FT_THREADS_PER_BLOCK_ON_COMPUTE_INDEXMAP 32
+#define FT_THREADS_PER_BLOCK_ON_COMPUTE_INITIAL_CONDITIONS 32
+#define FT_THREADS_PER_BLOCK_ON_EVOLVE 32
+#define FT_THREADS_PER_BLOCK_ON_FFTX_1 1024
+#define FT_THREADS_PER_BLOCK_ON_FFTX_2 32
+#define FT_THREADS_PER_BLOCK_ON_FFTX_3 256
+#define FT_THREADS_PER_BLOCK_ON_FFTY_1 32
+#define FT_THREADS_PER_BLOCK_ON_FFTY_2 32
+#define FT_THREADS_PER_BLOCK_ON_FFTY_3 32
+#define FT_THREADS_PER_BLOCK_ON_FFTZ_1 32
+#define FT_THREADS_PER_BLOCK_ON_FFTZ_2 32
+#define FT_THREADS_PER_BLOCK_ON_FFTZ_3 32
+#define FT_THREADS_PER_BLOCK_ON_INIT_UI 32
 
 /* global variables */
 #if defined(DO_NOT_ALLOCATE_ARRAYS_WITH_DYNAMIC_MEMORY_AND_AS_SINGLE_DIMENSION)
@@ -761,20 +775,20 @@ static void setup_gpu(){
 	source_additional_routines_complete.append(source_additional_routines_1);
 	source_additional_routines_complete.append(source_additional_routines_2);
 
-	threads_per_block_on_compute_indexmap = WARP_SIZE;
-	threads_per_block_on_compute_initial_conditions = WARP_SIZE;
-	threads_per_block_on_init_ui = WARP_SIZE;
-	threads_per_block_on_evolve = WARP_SIZE;
-	threads_per_block_on_fftx_1 = WARP_SIZE;
-	threads_per_block_on_fftx_2 = WARP_SIZE;
-	threads_per_block_on_fftx_3 = WARP_SIZE;
-	threads_per_block_on_ffty_1 = WARP_SIZE;
-	threads_per_block_on_ffty_2 = WARP_SIZE;
-	threads_per_block_on_ffty_3 = WARP_SIZE;
-	threads_per_block_on_fftz_1 = WARP_SIZE;
-	threads_per_block_on_fftz_2 = WARP_SIZE;
-	threads_per_block_on_fftz_3 = WARP_SIZE;
-	threads_per_block_on_checksum = WARP_SIZE;
+	threads_per_block_on_compute_indexmap = FT_THREADS_PER_BLOCK_ON_COMPUTE_INDEXMAP;
+	threads_per_block_on_compute_initial_conditions = FT_THREADS_PER_BLOCK_ON_COMPUTE_INITIAL_CONDITIONS;
+	threads_per_block_on_init_ui = FT_THREADS_PER_BLOCK_ON_INIT_UI;
+	threads_per_block_on_evolve = FT_THREADS_PER_BLOCK_ON_EVOLVE;
+	threads_per_block_on_fftx_1 = FT_THREADS_PER_BLOCK_ON_FFTX_1;
+	threads_per_block_on_fftx_2 = FT_THREADS_PER_BLOCK_ON_FFTX_2;
+	threads_per_block_on_fftx_3 = FT_THREADS_PER_BLOCK_ON_FFTX_3;
+	threads_per_block_on_ffty_1 = FT_THREADS_PER_BLOCK_ON_FFTY_1;
+	threads_per_block_on_ffty_2 = FT_THREADS_PER_BLOCK_ON_FFTY_2;
+	threads_per_block_on_ffty_3 = FT_THREADS_PER_BLOCK_ON_FFTY_3;
+	threads_per_block_on_fftz_1 = FT_THREADS_PER_BLOCK_ON_FFTZ_1;
+	threads_per_block_on_fftz_2 = FT_THREADS_PER_BLOCK_ON_FFTZ_2;
+	threads_per_block_on_fftz_3 = FT_THREADS_PER_BLOCK_ON_FFTZ_3;
+	threads_per_block_on_checksum = FT_THREADS_PER_BLOCK_ON_CHECKSUM;
 
 	amount_of_work_on_compute_indexmap = NX*NY*NZ;
 	amount_of_work_on_compute_initial_conditions = NZ;
@@ -1543,8 +1557,6 @@ static void fft_gpu(
 /* kernel sources */
 /******************/
 std::string source_kernel_compute_indexmap = GSPAR_STRINGIZE_SOURCE(
-	// BEGIN
-
 	int thread_id = gspar_get_global_id(0);
 
 	if(thread_id>=NTOTAL){
@@ -1564,13 +1576,9 @@ std::string source_kernel_compute_indexmap = GSPAR_STRINGIZE_SOURCE(
 	ii = ((i+NX/2) % NX) - NX/2;
 
 	twiddle[thread_id] = exp(AP*(double)(ii*ii+kj2));
-
-	// END
 );
 
 std::string source_kernel_compute_initial_conditions = GSPAR_STRINGIZE_SOURCE(
-	// BEGIN
-
 	int z = gspar_get_global_id(0);
 
 	if(z>=NZ){return;}
@@ -1579,13 +1587,9 @@ std::string source_kernel_compute_initial_conditions = GSPAR_STRINGIZE_SOURCE(
 	for(int y=0; y<NY; y++){
 		vranlc_device(2*NX, &x0, A, (double*)&u0[ 0 + y*NX + z*NX*NY ]);
 	}
-
-	//END
 );
 
 std::string source_kernel_init_ui = GSPAR_STRINGIZE_SOURCE(
-	// BEGIN
-
 	int thread_id = gspar_get_global_id(0);
 
 	if(thread_id>=(NX*NY*NZ)){
@@ -1598,13 +1602,9 @@ std::string source_kernel_init_ui = GSPAR_STRINGIZE_SOURCE(
 	u0[thread_id] = aux;
 	u1[thread_id] = aux;
 	twiddle[thread_id] = 0.0;
-
-	// END
 );
 
 std::string source_kernel_evolve = GSPAR_STRINGIZE_SOURCE(
-	// BEGIN
-
 	int thread_id = gspar_get_global_id(0);
 
 	if(thread_id>=(NZ*NY*NX)){
@@ -1613,13 +1613,9 @@ std::string source_kernel_evolve = GSPAR_STRINGIZE_SOURCE(
 
 	u0[thread_id] = dcomplex_mul2(u0[thread_id], twiddle[thread_id]);
 	u1[thread_id] = u0[thread_id];
-
-	// END
 );
 
 std::string source_kernel_fftx_1 = GSPAR_STRINGIZE_SOURCE(
-	//BEGIN 
-
 	int x_y_z = gspar_get_global_id(0);
 	if(x_y_z >= (NX*NY*NZ)){
 		return;
@@ -1629,13 +1625,9 @@ std::string source_kernel_fftx_1 = GSPAR_STRINGIZE_SOURCE(
 	int z = x_y_z / (NX * NY);
 	y0[y+(x*NY)+(z*NX*NY)].real = x_in[x_y_z].real;
 	y0[y+(x*NY)+(z*NX*NY)].imag = x_in[x_y_z].imag;
-
-	//END
 );
 
 std::string source_kernel_fftx_2 = GSPAR_STRINGIZE_SOURCE(
-	// BEGIN
-
 	int y_z = gspar_get_global_id(0);
 
 	if(y_z >= (NY*NZ)){
@@ -1738,13 +1730,9 @@ std::string source_kernel_fftx_2 = GSPAR_STRINGIZE_SOURCE(
 			}
 		}
 	} 	
-
-	// END
 );
 
 std::string source_kernel_fftx_3 = GSPAR_STRINGIZE_SOURCE(
-	// BEGIN
-
 	int x_y_z = gspar_get_global_id(0);
 	if(x_y_z >= (NX*NY*NZ)){
 		return;
@@ -1754,25 +1742,18 @@ std::string source_kernel_fftx_3 = GSPAR_STRINGIZE_SOURCE(
 	int z = x_y_z / (NX * NY);
 	x_out[x_y_z].real = y0[y+(x*NY)+(z*NX*NY)].real;
 	x_out[x_y_z].imag = y0[y+(x*NY)+(z*NX*NY)].imag;
-
-	// END
 );
 
 std::string source_kernel_ffty_1 = GSPAR_STRINGIZE_SOURCE(
-	// BEGIN
 	int x_y_z = gspar_get_global_id(0);
 	if(x_y_z >= (NX*NY*NZ)){
 		return;
 	}
 	y0[x_y_z].real = x_in[x_y_z].real;
 	y0[x_y_z].imag = x_in[x_y_z].imag;
-
-	// END
 );
 
 std::string source_kernel_ffty_2 = GSPAR_STRINGIZE_SOURCE(
-	// BEGIN
-
 	int x_z = gspar_get_global_id(0);
 
 	if(x_z >= (NX*NZ)){
@@ -1877,39 +1858,27 @@ std::string source_kernel_ffty_2 = GSPAR_STRINGIZE_SOURCE(
 			}
 		}
 	}
-
-	// END
 );
 
 std::string source_kernel_ffty_3 = GSPAR_STRINGIZE_SOURCE(
-	// BEGIN
-
 	int x_y_z = gspar_get_global_id(0);
 	if(x_y_z >= (NX*NY*NZ)){
 		return;
 	}
 	x_out[x_y_z].real = y0[x_y_z].real;
 	x_out[x_y_z].imag = y0[x_y_z].imag;
-
-	//END
 );
 
 std::string source_kernel_fftz_1 = GSPAR_STRINGIZE_SOURCE(
-	// BEGIN
-
 	int x_y_z = gspar_get_global_id(0);
 		if(x_y_z >= (NX*NY*NZ)){
 	return;
 	}
 	y0[x_y_z].real = x_in[x_y_z].real;
 	y0[x_y_z].imag = x_in[x_y_z].imag;
-
-	//END
 );
 
 std::string source_kernel_fftz_2 = GSPAR_STRINGIZE_SOURCE(
-	// BEGIN
-
 	int x_y = gspar_get_global_id(0);
 	if(x_y >= (NX*NY)){
 		return;
@@ -1922,31 +1891,21 @@ std::string source_kernel_fftz_2 = GSPAR_STRINGIZE_SOURCE(
 		u_device, 
 		x_y /* index_arg */, 
 		NX*NY /* size_arg */);
-
-	//END
 );
 
 std::string source_kernel_fftz_3 = GSPAR_STRINGIZE_SOURCE(
-	// BEGIN
-
 	int x_y_z = gspar_get_global_id(0);
 	if(x_y_z >= (NX*NY*NZ)){
 		return;
 	}
 	x_out[x_y_z].real = y0[x_y_z].real;
 	x_out[x_y_z].imag = y0[x_y_z].imag;
-
-	// END
 );
 
 std::string source_kernel_checksum = GSPAR_STRINGIZE_SOURCE(
-	// BEGIN
-
 	int thread_id = gspar_get_global_id(0);
-
-	/* TODO shared memory must be dynamic alocated according */
-	/* to the number of threads per block                    */
-	GSPAR_DEVICE_SHARED_MEMORY dcomplex share_sums[1024];
+	
+	GSPAR_DEVICE_SHARED_MEMORY dcomplex share_sums[FT_THREADS_PER_BLOCK_ON_CHECKSUM];
 	int j = thread_id + 1;
 	int q, r, s;
 
@@ -1976,19 +1935,26 @@ std::string source_kernel_checksum = GSPAR_STRINGIZE_SOURCE(
 		share_sums[0].imag = share_sums[0].imag/(double)(NTOTAL);
 		gspar_atomic_add_double(&sums[iteration].imag,share_sums[0].imag);
 	}	
-
-	// END
 );
 
 std::string source_additional_routines_complete = "\n";
 
-std::string source_additional_routines_1 = 
-"\n"
-"#define CHECKSUM_TASKS 1024\n"
-"#define WARP_SIZE 32\n"
-"#define MAX_THREADS_PER_BLOCK 1024\n"
-"#define THREADS_PER_BLOCK WARP_SIZE\n"
-"\n";
+std::string source_additional_routines_1 =
+	"#define CHECKSUM_TASKS " + std::to_string(CHECKSUM_TASKS) + "\n" +
+    "#define FT_THREADS_PER_BLOCK_ON_COMPUTE_INDEXMAP " + std::to_string(FT_THREADS_PER_BLOCK_ON_COMPUTE_INDEXMAP) + "\n" +
+    "#define FT_THREADS_PER_BLOCK_ON_COMPUTE_INITIAL_CONDITIONS " + std::to_string(FT_THREADS_PER_BLOCK_ON_COMPUTE_INITIAL_CONDITIONS) + "\n" +
+    "#define FT_THREADS_PER_BLOCK_ON_EVOLVE " + std::to_string(FT_THREADS_PER_BLOCK_ON_EVOLVE) + "\n" +
+    "#define FT_THREADS_PER_BLOCK_ON_FFTX_1 " + std::to_string(FT_THREADS_PER_BLOCK_ON_FFTX_1) + "\n" +
+    "#define FT_THREADS_PER_BLOCK_ON_FFTX_2 " + std::to_string(FT_THREADS_PER_BLOCK_ON_FFTX_2) + "\n" +
+    "#define FT_THREADS_PER_BLOCK_ON_FFTX_3 " + std::to_string(FT_THREADS_PER_BLOCK_ON_FFTX_3) + "\n" +
+    "#define FT_THREADS_PER_BLOCK_ON_FFTY_1 " + std::to_string(FT_THREADS_PER_BLOCK_ON_FFTY_1) + "\n" +
+    "#define FT_THREADS_PER_BLOCK_ON_FFTY_2 " + std::to_string(FT_THREADS_PER_BLOCK_ON_FFTY_2) + "\n" +
+    "#define FT_THREADS_PER_BLOCK_ON_FFTY_3 " + std::to_string(FT_THREADS_PER_BLOCK_ON_FFTY_3) + "\n" +
+    "#define FT_THREADS_PER_BLOCK_ON_FFTZ_1 " + std::to_string(FT_THREADS_PER_BLOCK_ON_FFTZ_1) + "\n" +
+    "#define FT_THREADS_PER_BLOCK_ON_FFTZ_2 " + std::to_string(FT_THREADS_PER_BLOCK_ON_FFTZ_2) + "\n" +
+    "#define FT_THREADS_PER_BLOCK_ON_FFTZ_3 " + std::to_string(FT_THREADS_PER_BLOCK_ON_FFTZ_3) + "\n" +
+    "#define FT_THREADS_PER_BLOCK_ON_CHECKSUM " + std::to_string(FT_THREADS_PER_BLOCK_ON_CHECKSUM) + "\n" +
+    "#define FT_THREADS_PER_BLOCK_ON_INIT_UI " + std::to_string(FT_THREADS_PER_BLOCK_ON_INIT_UI) + "\n";
 
 std::string source_additional_routines_2 = GSPAR_STRINGIZE_SOURCE(
 /* dcomplex struct */

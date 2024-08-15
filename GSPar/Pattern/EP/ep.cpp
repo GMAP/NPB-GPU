@@ -56,11 +56,14 @@
  *      Gabriell Araujo <hexenoften@gmail.com>
  *
  * ------------------------------------------------------------------------------
+ * 
+ * How to run:
+ *      export LD_LIBRARY_PATH=../lib/gspar/bin:$LD_LIBRARY_PATH
+ *      clear && make clean && make ep CLASS=S GPU_DRIVER=CUDA && bin/ep.S 
+ *      clear && make clean && make ep CLASS=S GPU_DRIVER=OPENCL && bin/ep.S 
+ * 
+ * ------------------------------------------------------------------------------
  */
-
-// export LD_LIBRARY_PATH=../lib/gspar/bin:$LD_LIBRARY_PATH
-// clear && make clean && make ep CLASS=S GPU_DRIVER=CUDA && bin/ep.S 
-// clear && make clean && make ep CLASS=S GPU_DRIVER=OPENCL && bin/ep.S 
 
 #include <iostream>
 #include <chrono>
@@ -105,7 +108,7 @@ using namespace std;
 #define	S (271828183.0)
 #define NK_PLUS ((2*NK)+1)
 #define PROFILING_TOTAL_TIME (0)
-#define THREADS_PER_BLOCK (32)
+#define EP_THREADS_PER_BLOCK (32)
 
 /* global variables */
 #if defined(DO_NOT_ALLOCATE_ARRAYS_WITH_DYNAMIC_MEMORY_AND_AS_SINGLE_DIMENSION)
@@ -133,9 +136,7 @@ MemoryObject* sx_device;
 MemoryObject* sy_device;
 Map* kernel_ep; 
 extern std::string source_kernel_ep;
-extern std::string source_additional_routines_complete;
-extern std::string source_additional_routines_1;
-extern std::string source_additional_routines_2;
+extern std::string source_additional_routines;
 
 /* function prototypes */
 static void setup_gpu();
@@ -351,10 +352,9 @@ static void setup_gpu(){
 
 	amount_of_work = NN;
 
-	threads_per_block = THREADS_PER_BLOCK;
+	threads_per_block = EP_THREADS_PER_BLOCK;
 
-	blocks_per_grid = NN / threads_per_block;
-	if(blocks_per_grid == 0){blocks_per_grid=1;}
+	blocks_per_grid = (ceil((double)NN/(double)threads_per_block));
 
 	q_size = blocks_per_grid * NQ * sizeof(double);
 	sx_size = blocks_per_grid * sizeof(double);
@@ -378,10 +378,7 @@ static void setup_gpu(){
 
 	q_device->copyIn();
 	sx_device->copyIn();
-	sy_device->copyIn();	
-
-	source_additional_routines_complete.append(source_additional_routines_1);
-	source_additional_routines_complete.append(source_additional_routines_2);
+	sy_device->copyIn();
 
 	/* kernel_ep */
 	double an = 0.0;
@@ -400,7 +397,7 @@ static void setup_gpu(){
 
 		kernel_ep->setNumThreadsPerBlockForX(threads_per_block);
 
-		kernel_ep->addExtraKernelCode(source_additional_routines_complete);
+		kernel_ep->addExtraKernelCode(source_additional_routines);
 
 		kernel_ep->compile<Instance>(dims);
 	} catch (GSPar::GSParException &ex) {
@@ -409,18 +406,9 @@ static void setup_gpu(){
 	}
 }
 
-std::string source_additional_routines_complete = "\n";
-
-std::string source_additional_routines_1 = 
-"\n"
-"#define THREADS_PER_BLOCK 32\n"
-"#define NQ 10\n"
-"#define RECOMPUTING 128\n"
-"\n"
-"\n"
-"\n";
-
-std::string source_additional_routines_2 = GSPAR_STRINGIZE_SOURCE(
+std::string source_additional_routines = GSPAR_STRINGIZE_SOURCE(
+GSPAR_DEVICE_MACRO_BEGIN NQ 10 GSPAR_DEVICE_MACRO_END
+GSPAR_DEVICE_MACRO_BEGIN RECOMPUTING 128 GSPAR_DEVICE_MACRO_END
 GSPAR_DEVICE_CONSTANT double A = (1220703125.0);
 GSPAR_DEVICE_CONSTANT double S = (271828183.0);
 GSPAR_DEVICE_CONSTANT double R23 = (0.5*0.5*0.5*0.5*0.5*0.5*0.5*0.5*0.5*0.5*0.5*0.5*0.5*0.5*0.5*0.5*0.5*0.5*0.5*0.5*0.5*0.5*0.5);
@@ -468,8 +456,6 @@ GSPAR_DEVICE_FUNCTION void vranlc_device(int n, double* x_seed, double a, double
 );
 
 std::string source_kernel_ep = GSPAR_STRINGIZE_SOURCE(
-	// BEGIN 		
-
 	double x_local[2*RECOMPUTING];
 	double q_local[NQ]; 
 	double sx_local, sy_local;
@@ -533,6 +519,4 @@ std::string source_kernel_ep = GSPAR_STRINGIZE_SOURCE(
 	gspar_atomic_add_double(q_global+gspar_get_block_id(0)*NQ+9, q_local[9]); 
 	gspar_atomic_add_double(sx_global+gspar_get_block_id(0), sx_local); 
 	gspar_atomic_add_double(sy_global+gspar_get_block_id(0), sy_local);
-
-	//END
 );

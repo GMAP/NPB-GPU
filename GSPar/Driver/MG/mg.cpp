@@ -718,83 +718,6 @@ static void comm3(void* pointer_base_u,
 	}
 }
 
-static void comm3_gpu(
-		MemoryObject* base_u_device, 
-		int n1, 
-		int n2, 
-		int n3, 
-		int kk,
-		int offset){
-	threads_per_block = MG_THREADS_PER_BLOCK_ON_COMM3;
-	amount_of_work = (n3-2) * MG_THREADS_PER_BLOCK_ON_COMM3;
-	blocks_per_grid = (ceil((double)(amount_of_work)/(double)(threads_per_block)));
-
-	try {	
-		/* kernel_comm3_1 */		
-		kernel_comm3_1->clearParameters();
-		kernel_comm3_1->setNumThreadsPerBlockForX(threads_per_block);
-		kernel_comm3_1->setParameter(base_u_device);		
-		kernel_comm3_1->setParameter(sizeof(int), &n1);
-		kernel_comm3_1->setParameter(sizeof(int), &n2);
-		kernel_comm3_1->setParameter(sizeof(int), &n3);
-		kernel_comm3_1->setParameter(sizeof(int), &amount_of_work);
-		kernel_comm3_1->setParameter(sizeof(int), &offset);
-
-		unsigned long dimensions_comm3_1[3] = {(unsigned long)amount_of_work, 0, 0};
-		kernel_comm3_1->runAsync(dimensions_comm3_1);
-		kernel_comm3_1->waitAsync();
-	} catch (GSPar::GSParException &ex) {
-		std::cerr << "Exception: " << ex.what() << " - " << ex.getDetails() << std::endl;
-		exit(-1);
-	}
-
-	threads_per_block = MG_THREADS_PER_BLOCK_ON_COMM3;
-	amount_of_work = (n3-2) * MG_THREADS_PER_BLOCK_ON_COMM3;	
-	blocks_per_grid = (ceil((double)(amount_of_work)/(double)(threads_per_block)));
-
-	try {	
-		/* kernel_comm3_2 */		
-		kernel_comm3_2->clearParameters();
-		kernel_comm3_2->setNumThreadsPerBlockForX(threads_per_block);
-		kernel_comm3_2->setParameter(base_u_device);		
-		kernel_comm3_2->setParameter(sizeof(int), &n1);
-		kernel_comm3_2->setParameter(sizeof(int), &n2);
-		kernel_comm3_2->setParameter(sizeof(int), &n3);
-		kernel_comm3_2->setParameter(sizeof(int), &amount_of_work);
-		kernel_comm3_2->setParameter(sizeof(int), &offset);
-
-		unsigned long dimensions_comm3_2[3] = {(unsigned long)amount_of_work, 0, 0};
-		kernel_comm3_2->runAsync(dimensions_comm3_2);
-		kernel_comm3_2->waitAsync();
-	} catch (GSPar::GSParException &ex) {
-		std::cerr << "Exception: " << ex.what() << " - " << ex.getDetails() << std::endl;
-		exit(-1);
-	}
-
-	threads_per_block = MG_THREADS_PER_BLOCK_ON_COMM3;
-	amount_of_work = n2 * MG_THREADS_PER_BLOCK_ON_COMM3;
-	blocks_per_grid = (ceil((double)(amount_of_work)/(double)(threads_per_block)));
-
-	try {	
-		/* kernel_comm3_ */		
-		kernel_comm3_3->clearParameters();
-		kernel_comm3_3->setNumThreadsPerBlockForX(threads_per_block);
-		kernel_comm3_3->setParameter(base_u_device);		
-		kernel_comm3_3->setParameter(sizeof(int), &n1);
-		kernel_comm3_3->setParameter(sizeof(int), &n2);
-		kernel_comm3_3->setParameter(sizeof(int), &n3);
-		kernel_comm3_3->setParameter(sizeof(int), &amount_of_work);
-		kernel_comm3_3->setParameter(sizeof(int), &offset);
-
-		unsigned long dimensions_comm3_3[3] = {(unsigned long)amount_of_work, 0, 0};
-		kernel_comm3_3->runAsync(dimensions_comm3_3);
-		kernel_comm3_3->waitAsync();
-	} catch (GSPar::GSParException &ex) {
-		std::cerr << "Exception: " << ex.what() << " - " << ex.getDetails() << std::endl;
-		exit(-1);
-	}
-}
-
 /*
  * --------------------------------------------------------------------
  * interp adds the trilinear interpolation of the correction
@@ -962,49 +885,6 @@ static void interp(void* pointer_base_z,
 	}
 }
 
-static void interp_gpu(
-		MemoryObject* base_z_device, 
-		int mm1, 
-		int mm2, 
-		int mm3, 
-		MemoryObject* base_u_device, 
-		int n1, 
-		int n2, 
-		int n3, 
-		int k,
-		int offset_1,
-		int offset_2){
-	if(n1 != 3 && n2 != 3 && n3 != 3){
-		threads_per_block = mm1;
-		amount_of_work = (mm3-1) * (mm2-1) * mm1;	
-		blocks_per_grid = (ceil((double)(amount_of_work)/(double)(threads_per_block)));
-
-		try {		
-			/* kernel_interp */		
-			kernel_interp->clearParameters();
-			kernel_interp->setNumThreadsPerBlockForX(threads_per_block);
-			kernel_interp->setParameter(base_z_device);
-			kernel_interp->setParameter(base_u_device);
-			kernel_interp->setParameter(sizeof(int), &mm1);
-			kernel_interp->setParameter(sizeof(int), &mm2);
-			kernel_interp->setParameter(sizeof(int), &mm3);
-			kernel_interp->setParameter(sizeof(int), &n1);
-			kernel_interp->setParameter(sizeof(int), &n2);
-			kernel_interp->setParameter(sizeof(int), &n3);
-			kernel_interp->setParameter(sizeof(int), &amount_of_work);
-			kernel_interp->setParameter(sizeof(int), &offset_1);
-			kernel_interp->setParameter(sizeof(int), &offset_2);
-
-			unsigned long dimensions_comm3_1[3] = {(unsigned long)amount_of_work, 0, 0};
-			kernel_interp->runAsync(dimensions_comm3_1);
-			kernel_interp->waitAsync();
-		} catch (GSPar::GSParException &ex) {
-			std::cerr << "Exception: " << ex.what() << " - " << ex.getDetails() << std::endl;
-			exit(-1);
-		}
-	}
-}
-
 /* 
  * --------------------------------------------------------------------
  * multigrid v-cycle routine
@@ -1068,64 +948,6 @@ static void mg3P(double u[],
 	psinv(r, u, n1, n2, n3, c, k, 0 /*offset_1*/, 0 /*offset_2*/);
 }
 
-static void mg3P_gpu(
-		MemoryObject* u_device, 
-		MemoryObject* v_device, 
-		MemoryObject* r_device, 
-		MemoryObject* a_device, 
-		MemoryObject* c_device, 
-		int n1, 
-		int n2, 
-		int n3, 
-		int k){
-	int j;
-	/*
-	 * --------------------------------------------------------------------
-	 * down cycle.
-	 * restrict the residual from the find grid to the coarse
-	 * -------------------------------------------------------------------
-	 */
-	for(k = lt; k >= lb+1; k--){
-		j = k-1;
-		rprj3_gpu(r_device, m1[k], m2[k], m3[k], r_device, m1[j], m2[j], m3[j],	k, ir[k] /*offset_1*/, ir[j] /*offset_2*/);
-	}
-	k = lb;
-	/*
-	 * --------------------------------------------------------------------
-	 * compute an approximate solution on the coarsest grid
-	 * --------------------------------------------------------------------
-	 */
-	zero3_gpu(u_device, m1[k], m2[k], m3[k], ir[k] /*offset*/);
-	psinv_gpu(r_device, u_device, m1[k], m2[k], m3[k], c_device, k, ir[k] /*offset_1*/, ir[k] /*offset_2*/);
-	for(k = lb+1; k <= lt-1; k++){
-		j = k-1;
-		/*
-		 * --------------------------------------------------------------------
-		 * prolongate from level k-1  to k
-		 * -------------------------------------------------------------------
-		 */
-		zero3_gpu(u_device, m1[k], m2[k], m3[k], ir[k] /*offset*/);
-		interp_gpu(u_device, m1[j], m2[j], m3[j], u_device, m1[k], m2[k], m3[k], k, ir[j] /*offset_1*/, ir[k] /*offset_2*/);
-		/*
-		 * --------------------------------------------------------------------
-		 * compute residual for level k
-		 * --------------------------------------------------------------------
-		 */
-		resid_gpu(u_device, r_device, r_device, m1[k], m2[k], m3[k], a_device, k, ir[k], ir[k], ir[k]);
-		/*
-		 * --------------------------------------------------------------------
-		 * apply smoother
-		 * --------------------------------------------------------------------
-		 */
-		psinv_gpu(r_device, u_device, m1[k], m2[k], m3[k], c_device, k, ir[k] /*offset_1*/, ir[k] /*offset_2*/);
-	}
-	j = lt - 1; 
-	k = lt;
-	interp_gpu(u_device, m1[j], m2[j], m3[j], u_device, n1, n2, n3, k, ir[j] /*offset_1*/, 0 /*offset_2*/);
-	resid_gpu(u_device, v_device, r_device, n1, n2, n3, a_device, k, 0, 0, 0);
-	psinv_gpu(r_device, u_device, n1, n2, n3, c_device, k, 0 /*offset_1*/, 0 /*offset_2*/);
-}
-
 /*
  * ---------------------------------------------------------------------
  * norm2u3 evaluates approximations to the l2 norm and the
@@ -1166,84 +988,6 @@ static void norm2u3(void* pointer_r,
 	}
 
 	*rnm2 = sqrt(s/dn);
-}
-
-static void norm2u3_gpu(
-		MemoryObject* r_device, 
-		int n1, 
-		int n2, 
-		int n3, 
-		double* rnm2, 
-		double* rnmu, 
-		int nx, 
-		int ny, 
-		int nz){
-	auto gpus = driver->getGpuList();
-	DEVICE_NAME = gpus[0]->getName();	
-	auto gpu = driver->getGpu(0);	
-
-	double s;
-	double dn, max_rnmu;
-	int temp_size, j;
-
-	dn=1.0*nx*ny*nz;
-	s=0.0;
-	max_rnmu=0.0;
-
-	threads_per_block = MG_THREADS_PER_BLOCK_ON_NORM2U3;
-	amount_of_work = (n2-2) * (n3-2) * threads_per_block;
-	blocks_per_grid = (ceil((double)(amount_of_work)/(double)(threads_per_block)));
-
-	temp_size = amount_of_work / threads_per_block;	
-
-	double* sum_host;	
-	double* max_host;
-
-	MemoryObject* sum_device;
-	MemoryObject* max_device;	
-
-	sum_host=(double*)malloc(temp_size*sizeof(double));
-	max_host=(double*)malloc(temp_size*sizeof(double));
-
-	sum_device = gpu->malloc(temp_size*sizeof(double), sum_host);
-	max_device = gpu->malloc(temp_size*sizeof(double), max_host);
-
-	try {		
-		/* kernel_norm2u3 */		
-		kernel_norm2u3->clearParameters();
-		kernel_norm2u3->setNumThreadsPerBlockForX(threads_per_block);
-		kernel_norm2u3->setParameter(r_device);
-		kernel_norm2u3->setParameter(sizeof(int), &n1);
-		kernel_norm2u3->setParameter(sizeof(int), &n2);
-		kernel_norm2u3->setParameter(sizeof(int), &n3);
-		kernel_norm2u3->setParameter(sum_device);
-		kernel_norm2u3->setParameter(max_device);
-		kernel_norm2u3->setParameter(sizeof(int), &blocks_per_grid);
-		kernel_norm2u3->setParameter(sizeof(int), &amount_of_work);
-
-		unsigned long dimensions_norm2u3[3] = {(unsigned long)amount_of_work, 0, 0};
-		kernel_norm2u3->runAsync(dimensions_norm2u3);
-		kernel_norm2u3->waitAsync();
-	} catch (GSPar::GSParException &ex) {
-		std::cerr << "Exception: " << ex.what() << " - " << ex.getDetails() << std::endl;
-		exit(-1);
-	}
-
-	sum_device->copyOut();
-	max_device->copyOut();
-
-	for(j=0; j<temp_size; j++){
-		s=s+sum_host[j];
-		if(max_rnmu<max_host[j]){max_rnmu=max_host[j];}
-	}
-
-	delete sum_device;
-	delete max_device;
-	free(sum_host);
-	free(max_host);
-
-	*rnmu=max_rnmu;
-	*rnm2=sqrt(s/dn);
 }
 
 /*
@@ -1344,50 +1088,6 @@ static void psinv(
 	}
 }
 
-static void psinv_gpu(
-		MemoryObject* base_r_device, 
-		MemoryObject* base_u_device, 
-		int n1, 
-		int n2, 
-		int n3, 
-		MemoryObject* c_device, 
-		int k,
-		int offset_1,
-		int offset_2){
-	threads_per_block = n1 > MG_THREADS_PER_BLOCK_ON_PSINV ? MG_THREADS_PER_BLOCK_ON_PSINV : n1;
-	amount_of_work = (n3-2) * (n2-2) * threads_per_block;
-	blocks_per_grid = (ceil((double)(amount_of_work)/(double)(threads_per_block)));
-
-	try {	
-		/* kernel_psinv */		
-		kernel_psinv->clearParameters();
-		kernel_psinv->setNumThreadsPerBlockForX(threads_per_block);
-		kernel_psinv->setParameter(base_r_device);	
-		kernel_psinv->setParameter(base_u_device);	
-		kernel_psinv->setParameter(c_device);	
-		kernel_psinv->setParameter(sizeof(int), &n1);
-		kernel_psinv->setParameter(sizeof(int), &n2);
-		kernel_psinv->setParameter(sizeof(int), &n3);
-		kernel_psinv->setParameter(sizeof(int), &amount_of_work);
-		kernel_psinv->setParameter(sizeof(int), &offset_1);
-		kernel_psinv->setParameter(sizeof(int), &offset_2);
-
-		unsigned long dimensions_kernel_psinv[3] = {(unsigned long)amount_of_work, 0, 0};
-		kernel_psinv->runAsync(dimensions_kernel_psinv);
-		kernel_psinv->waitAsync();
-	} catch (GSPar::GSParException &ex) {
-		std::cerr << "Exception: " << ex.what() << " - " << ex.getDetails() << std::endl;
-		exit(-1);
-	}
-
-	/*
-	 * --------------------------------------------------------------------
-	 * exchange boundary points
-	 * --------------------------------------------------------------------
-	 */
-	comm3_gpu(base_u_device,n1,n2,n3,k, offset_2);
-}
-
 /*
  * ---------------------------------------------------------------------
  * report on norm
@@ -1483,54 +1183,6 @@ static void resid(
 	}
 }
 
-static void resid_gpu(
-		MemoryObject* base_u_device,
-		MemoryObject* base_v_device,
-		MemoryObject* base_r_device,
-		int n1,
-		int n2,
-		int n3,
-		MemoryObject* a_device,
-		int k,
-		int offset_1,
-		int offset_2,
-		int offset_3){
-	threads_per_block = n1 > MG_THREADS_PER_BLOCK_ON_RESID ? MG_THREADS_PER_BLOCK_ON_RESID : n1;
-	amount_of_work = (n3-2) * (n2-2) * threads_per_block;
-	blocks_per_grid = (ceil((double)(amount_of_work)/(double)(threads_per_block)));
-
-	try {
-		/* kernel_resid */		
-		kernel_resid->clearParameters();
-		kernel_resid->setNumThreadsPerBlockForX(threads_per_block);
-		kernel_resid->setParameter(base_u_device);
-		kernel_resid->setParameter(base_v_device);
-		kernel_resid->setParameter(base_r_device);
-		kernel_resid->setParameter(a_device);
-		kernel_resid->setParameter(sizeof(int), &n1);
-		kernel_resid->setParameter(sizeof(int), &n2);
-		kernel_resid->setParameter(sizeof(int), &n3);
-		kernel_resid->setParameter(sizeof(int), &amount_of_work);
-		kernel_resid->setParameter(sizeof(int), &offset_1);
-		kernel_resid->setParameter(sizeof(int), &offset_2);
-		kernel_resid->setParameter(sizeof(int), &offset_3);
-
-		unsigned long dimensions_resid[3] = {(unsigned long)amount_of_work, 0, 0};
-		kernel_resid->runAsync(dimensions_resid);
-		kernel_resid->waitAsync();
-	} catch (GSPar::GSParException &ex) {
-		std::cerr << "Exception: " << ex.what() << " - " << ex.getDetails() << std::endl;
-		exit(-1);
-	}
-
-	/*
-	 * --------------------------------------------------------------------
-	 * exchange boundary data
-	 * --------------------------------------------------------------------
-	 */
-	comm3_gpu(base_r_device, n1, n2, n3, k, offset_3);
-}
-
 /*
  * --------------------------------------------------------------------
  * rprj3 projects onto the next coarser grid, 
@@ -1617,71 +1269,6 @@ static void rprj3(
 	}
 }
 
-static void rprj3_gpu(
-		MemoryObject* base_r_device, 
-		int m1k, 
-		int m2k, 
-		int m3k, 
-		MemoryObject* base_s_device, 
-		int m1j, 
-		int m2j, 
-		int m3j, 
-		int k,
-		int offset_1,
-		int offset_2){
-	int d1,d2,d3,j;
-
-	if(m1k==3){
-		d1=2;
-	}else{
-		d1=1;
-	}
-	if(m2k==3){
-		d2=2;
-	}else{
-		d2=1;
-	}
-	if(m3k==3){
-		d3=2;
-	}else{
-		d3=1;
-	}
-
-	threads_per_block = m1j-1;
-	amount_of_work = (m3j-2) * (m2j-2) * (m1j-1);
-	blocks_per_grid = (ceil((double)(amount_of_work)/(double)(threads_per_block)));
-
-	try {		
-		/* kernel_rprj3 */		
-		kernel_rprj3->clearParameters();
-		kernel_rprj3->setNumThreadsPerBlockForX(threads_per_block);
-		kernel_rprj3->setParameter(base_r_device);
-		kernel_rprj3->setParameter(base_s_device);
-		kernel_rprj3->setParameter(sizeof(int), &m1k);
-		kernel_rprj3->setParameter(sizeof(int), &m2k);
-		kernel_rprj3->setParameter(sizeof(int), &m3k);
-		kernel_rprj3->setParameter(sizeof(int), &m1j);
-		kernel_rprj3->setParameter(sizeof(int), &m2j);
-		kernel_rprj3->setParameter(sizeof(int), &m3j);
-		kernel_rprj3->setParameter(sizeof(int), &d1);
-		kernel_rprj3->setParameter(sizeof(int), &d2);
-		kernel_rprj3->setParameter(sizeof(int), &d3);
-		kernel_rprj3->setParameter(sizeof(int), &amount_of_work);
-		kernel_rprj3->setParameter(sizeof(int), &offset_1);
-		kernel_rprj3->setParameter(sizeof(int), &offset_2);
-
-		unsigned long dimensions_resid[3] = {(unsigned long)amount_of_work, 0, 0};
-		kernel_rprj3->runAsync(dimensions_resid);
-		kernel_rprj3->waitAsync();
-	} catch (GSPar::GSParException &ex) {
-		std::cerr << "Exception: " << ex.what() << " - " << ex.getDetails() << std::endl;
-		exit(-1);
-	}
-	
-	j=k-1;
-	comm3_gpu(base_s_device,m1j,m2j,m3j,j, offset_2);
-}
-
 static void setup(int* n1, 
 		int* n2, 
 		int* n3, 
@@ -1739,135 +1326,6 @@ static void setup(int* n1,
 	}
 }
 
-static void setup_gpu(
-		double* a, 
-		double* c){
-	driver = Instance::getInstance();
-	driver->init();
-
-	int numGpus = driver->getGpuCount();
-	if (numGpus == 0) {
-		std::cout << "No GPU found, interrupting the benchmark" << std::endl;
-		exit(-1);
-	}
-
-	auto gpus = driver->getGpuList();
-
-	DEVICE_NAME = gpus[0]->getName();	
-
-	auto gpu = driver->getGpu(0);	
-
-	size_a_device=sizeof(double)*(4);
-	size_c_device=sizeof(double)*(4);
-	size_u_device=sizeof(double)*(NR);
-	size_v_device=sizeof(double)*(NV);
-	size_r_device=sizeof(double)*(NR);
-
-	a_device = gpu->malloc(size_a_device, a);
-	c_device = gpu->malloc(size_c_device, c);
-	u_device = gpu->malloc(size_u_device, u);
-	v_device = gpu->malloc(size_v_device, v);
-	r_device = gpu->malloc(size_r_device, r);		
-
-	a_device->copyIn();
-	c_device->copyIn();
-	u_device->copyIn();
-	v_device->copyIn();
-	r_device->copyIn();	
-
-	source_additional_routines_complete = source_additional_routines + "\n";
-
-	try {
-		std::string kernel_source_comm3_1_complete = "\n";
-		kernel_source_comm3_1_complete.append(source_additional_routines_complete);
-		kernel_source_comm3_1_complete.append(kernel_source_comm3_1);
-		kernel_comm3_1 = new Kernel(gpu, kernel_source_comm3_1_complete, "comm3_gpu_kernel_1");
-	} catch (GSPar::GSParException &ex) {
-		std::cerr << "Exception: " << ex.what() << " - " << ex.getDetails() << std::endl;
-		exit(-1);
-	}	
-
-	try {
-		std::string kernel_source_comm3_2_complete = "\n";
-		kernel_source_comm3_2_complete.append(source_additional_routines_complete);
-		kernel_source_comm3_2_complete.append(kernel_source_comm3_2);
-		kernel_comm3_2 = new Kernel(gpu, kernel_source_comm3_2_complete, "comm3_gpu_kernel_2");
-	} catch (GSPar::GSParException &ex) {
-		std::cerr << "Exception: " << ex.what() << " - " << ex.getDetails() << std::endl;
-		exit(-1);
-	}	
-
-	try {
-		std::string kernel_source_comm3_3_complete = "\n";
-		kernel_source_comm3_3_complete.append(source_additional_routines_complete);
-		kernel_source_comm3_3_complete.append(kernel_source_comm3_3);
-		kernel_comm3_3 = new Kernel(gpu, kernel_source_comm3_3_complete, "comm3_gpu_kernel_3");
-	} catch (GSPar::GSParException &ex) {
-		std::cerr << "Exception: " << ex.what() << " - " << ex.getDetails() << std::endl;
-		exit(-1);
-	}	
-
-	try {
-		std::string kernel_source_interp_complete = "\n";
-		kernel_source_interp_complete.append(source_additional_routines_complete);
-		kernel_source_interp_complete.append(kernel_source_interp);
-		kernel_interp = new Kernel(gpu, kernel_source_interp_complete, "interp_gpu_kernel");
-	} catch (GSPar::GSParException &ex) {
-		std::cerr << "Exception: " << ex.what() << " - " << ex.getDetails() << std::endl;
-		exit(-1);
-	}	
-
-	try {
-		std::string kernel_source_norm2u3_complete = "\n";
-		kernel_source_norm2u3_complete.append(source_additional_routines_complete);
-		kernel_source_norm2u3_complete.append(kernel_source_norm2u3);
-		kernel_norm2u3 = new Kernel(gpu, kernel_source_norm2u3_complete, "norm2u3_gpu_kernel");
-	} catch (GSPar::GSParException &ex) {
-		std::cerr << "Exception: " << ex.what() << " - " << ex.getDetails() << std::endl;
-		exit(-1);
-	}	
-
-	try {
-		std::string kernel_source_psinv_complete = "\n";
-		kernel_source_psinv_complete.append(source_additional_routines_complete);
-		kernel_source_psinv_complete.append(kernel_source_psinv);
-		kernel_psinv = new Kernel(gpu, kernel_source_psinv_complete, "psinv_gpu_kernel");
-	} catch (GSPar::GSParException &ex) {
-		std::cerr << "Exception: " << ex.what() << " - " << ex.getDetails() << std::endl;
-		exit(-1);
-	}	
-
-	try {
-		std::string kernel_source_resid_complete = "\n";
-		kernel_source_resid_complete.append(source_additional_routines_complete);
-		kernel_source_resid_complete.append(kernel_source_resid);
-		kernel_resid = new Kernel(gpu, kernel_source_resid_complete, "resid_gpu_kernel");
-	} catch (GSPar::GSParException &ex) {
-		std::cerr << "Exception: " << ex.what() << " - " << ex.getDetails() << std::endl;
-		exit(-1);
-	}
-
-	try {
-		std::string kernel_source_rprj3_complete = "\n";
-		kernel_source_rprj3_complete.append(source_additional_routines_complete);
-		kernel_source_rprj3_complete.append(kernel_source_rprj3);
-		kernel_rprj3 = new Kernel(gpu, kernel_source_rprj3_complete, "rprj3_gpu_kernel");
-	} catch (GSPar::GSParException &ex) {
-		std::cerr << "Exception: " << ex.what() << " - " << ex.getDetails() << std::endl;
-		exit(-1);
-	}
-
-	try {
-		std::string kernel_source_zero3_complete = "\n";
-		kernel_source_zero3_complete.append(source_additional_routines_complete);
-		kernel_source_zero3_complete.append(kernel_source_zero3);
-		kernel_zero3 = new Kernel(gpu, kernel_source_zero3_complete, "zero3_gpu_kernel");
-	} catch (GSPar::GSParException &ex) {
-		std::cerr << "Exception: " << ex.what() << " - " << ex.getDetails() << std::endl;
-		exit(-1);
-	}
-}
-
 static void showall(void* pointer_z, 
 		int n1, 
 		int n2, 
@@ -1910,35 +1368,6 @@ static void zero3(void* pointer_base_z,
 				z[i3][i2][i1] = 0.0;
 			}
 		}
-	}
-}
-
-static void zero3_gpu(MemoryObject* base_z_device, 
-		int n1, 
-		int n2, 
-		int n3,
-		int offset){
-	threads_per_block = MG_THREADS_PER_BLOCK_ON_ZERO3;
-	amount_of_work = n1*n2*n3;	
-	blocks_per_grid = (ceil((double)(amount_of_work)/(double)(threads_per_block)));
-
-	try {		
-		/* kernel_zero3 */		
-		kernel_zero3->clearParameters();
-		kernel_zero3->setNumThreadsPerBlockForX(threads_per_block);
-		kernel_zero3->setParameter(base_z_device);		
-		kernel_zero3->setParameter(sizeof(int), &n1);
-		kernel_zero3->setParameter(sizeof(int), &n2);
-		kernel_zero3->setParameter(sizeof(int), &n3);
-		kernel_zero3->setParameter(sizeof(int), &amount_of_work);
-		kernel_zero3->setParameter(sizeof(int), &offset);
-
-		unsigned long dimensions_zero3[3] = {(unsigned long)amount_of_work, 0, 0};
-		kernel_zero3->runAsync(dimensions_zero3);
-		kernel_zero3->waitAsync();
-	} catch (GSPar::GSParException &ex) {
-		std::cerr << "Exception: " << ex.what() << " - " << ex.getDetails() << std::endl;
-		exit(-1);
 	}
 }
 
@@ -2078,6 +1507,577 @@ static void zran3(void* pointer_z,
 		z[jg[1][i][3]][jg[1][i][2]][jg[1][i][1]] = +1.0;
 	}
 	comm3(z, n1, n2, n3, k, 0 /*offset*/);
+}
+
+static void setup_gpu(
+		double* a, 
+		double* c){
+	driver = Instance::getInstance();
+	driver->init();
+
+	int numGpus = driver->getGpuCount();
+	if (numGpus == 0) {
+		std::cout << "No GPU found, interrupting the benchmark" << std::endl;
+		exit(-1);
+	}
+
+	auto gpus = driver->getGpuList();
+
+	DEVICE_NAME = gpus[0]->getName();	
+
+	auto gpu = driver->getGpu(0);	
+
+	size_a_device=sizeof(double)*(4);
+	size_c_device=sizeof(double)*(4);
+	size_u_device=sizeof(double)*(NR);
+	size_v_device=sizeof(double)*(NV);
+	size_r_device=sizeof(double)*(NR);
+
+	a_device = gpu->malloc(size_a_device, a);
+	c_device = gpu->malloc(size_c_device, c);
+	u_device = gpu->malloc(size_u_device, u);
+	v_device = gpu->malloc(size_v_device, v);
+	r_device = gpu->malloc(size_r_device, r);		
+
+	a_device->copyIn();
+	c_device->copyIn();
+	u_device->copyIn();
+	v_device->copyIn();
+	r_device->copyIn();	
+
+	source_additional_routines_complete = source_additional_routines + "\n";
+
+	try {
+		std::string kernel_source_comm3_1_complete = "\n";
+		kernel_source_comm3_1_complete.append(source_additional_routines_complete);
+		kernel_source_comm3_1_complete.append(kernel_source_comm3_1);
+		kernel_comm3_1 = new Kernel(gpu, kernel_source_comm3_1_complete, "comm3_gpu_kernel_1");
+	} catch (GSPar::GSParException &ex) {
+		std::cerr << "Exception: " << ex.what() << " - " << ex.getDetails() << std::endl;
+		exit(-1);
+	}	
+
+	try {
+		std::string kernel_source_comm3_2_complete = "\n";
+		kernel_source_comm3_2_complete.append(source_additional_routines_complete);
+		kernel_source_comm3_2_complete.append(kernel_source_comm3_2);
+		kernel_comm3_2 = new Kernel(gpu, kernel_source_comm3_2_complete, "comm3_gpu_kernel_2");
+	} catch (GSPar::GSParException &ex) {
+		std::cerr << "Exception: " << ex.what() << " - " << ex.getDetails() << std::endl;
+		exit(-1);
+	}	
+
+	try {
+		std::string kernel_source_comm3_3_complete = "\n";
+		kernel_source_comm3_3_complete.append(source_additional_routines_complete);
+		kernel_source_comm3_3_complete.append(kernel_source_comm3_3);
+		kernel_comm3_3 = new Kernel(gpu, kernel_source_comm3_3_complete, "comm3_gpu_kernel_3");
+	} catch (GSPar::GSParException &ex) {
+		std::cerr << "Exception: " << ex.what() << " - " << ex.getDetails() << std::endl;
+		exit(-1);
+	}	
+
+	try {
+		std::string kernel_source_interp_complete = "\n";
+		kernel_source_interp_complete.append(source_additional_routines_complete);
+		kernel_source_interp_complete.append(kernel_source_interp);
+		kernel_interp = new Kernel(gpu, kernel_source_interp_complete, "interp_gpu_kernel");
+	} catch (GSPar::GSParException &ex) {
+		std::cerr << "Exception: " << ex.what() << " - " << ex.getDetails() << std::endl;
+		exit(-1);
+	}	
+
+	try {
+		std::string kernel_source_norm2u3_complete = "\n";
+		kernel_source_norm2u3_complete.append(source_additional_routines_complete);
+		kernel_source_norm2u3_complete.append(kernel_source_norm2u3);
+		kernel_norm2u3 = new Kernel(gpu, kernel_source_norm2u3_complete, "norm2u3_gpu_kernel");
+	} catch (GSPar::GSParException &ex) {
+		std::cerr << "Exception: " << ex.what() << " - " << ex.getDetails() << std::endl;
+		exit(-1);
+	}	
+
+	try {
+		std::string kernel_source_psinv_complete = "\n";
+		kernel_source_psinv_complete.append(source_additional_routines_complete);
+		kernel_source_psinv_complete.append(kernel_source_psinv);
+		kernel_psinv = new Kernel(gpu, kernel_source_psinv_complete, "psinv_gpu_kernel");
+	} catch (GSPar::GSParException &ex) {
+		std::cerr << "Exception: " << ex.what() << " - " << ex.getDetails() << std::endl;
+		exit(-1);
+	}	
+
+	try {
+		std::string kernel_source_resid_complete = "\n";
+		kernel_source_resid_complete.append(source_additional_routines_complete);
+		kernel_source_resid_complete.append(kernel_source_resid);
+		kernel_resid = new Kernel(gpu, kernel_source_resid_complete, "resid_gpu_kernel");
+	} catch (GSPar::GSParException &ex) {
+		std::cerr << "Exception: " << ex.what() << " - " << ex.getDetails() << std::endl;
+		exit(-1);
+	}
+
+	try {
+		std::string kernel_source_rprj3_complete = "\n";
+		kernel_source_rprj3_complete.append(source_additional_routines_complete);
+		kernel_source_rprj3_complete.append(kernel_source_rprj3);
+		kernel_rprj3 = new Kernel(gpu, kernel_source_rprj3_complete, "rprj3_gpu_kernel");
+	} catch (GSPar::GSParException &ex) {
+		std::cerr << "Exception: " << ex.what() << " - " << ex.getDetails() << std::endl;
+		exit(-1);
+	}
+
+	try {
+		std::string kernel_source_zero3_complete = "\n";
+		kernel_source_zero3_complete.append(source_additional_routines_complete);
+		kernel_source_zero3_complete.append(kernel_source_zero3);
+		kernel_zero3 = new Kernel(gpu, kernel_source_zero3_complete, "zero3_gpu_kernel");
+	} catch (GSPar::GSParException &ex) {
+		std::cerr << "Exception: " << ex.what() << " - " << ex.getDetails() << std::endl;
+		exit(-1);
+	}
+}
+
+static void comm3_gpu(
+		MemoryObject* base_u_device, 
+		int n1, 
+		int n2, 
+		int n3, 
+		int kk,
+		int offset){
+	threads_per_block = MG_THREADS_PER_BLOCK_ON_COMM3;
+	amount_of_work = (n3-2) * MG_THREADS_PER_BLOCK_ON_COMM3;
+	blocks_per_grid = (ceil((double)(amount_of_work)/(double)(threads_per_block)));
+
+	try {	
+		/* kernel_comm3_1 */		
+		kernel_comm3_1->clearParameters();
+		kernel_comm3_1->setNumThreadsPerBlockForX(threads_per_block);
+		kernel_comm3_1->setParameter(base_u_device);		
+		kernel_comm3_1->setParameter(sizeof(int), &n1);
+		kernel_comm3_1->setParameter(sizeof(int), &n2);
+		kernel_comm3_1->setParameter(sizeof(int), &n3);
+		kernel_comm3_1->setParameter(sizeof(int), &amount_of_work);
+		kernel_comm3_1->setParameter(sizeof(int), &offset);
+
+		unsigned long dimensions_comm3_1[3] = {(unsigned long)amount_of_work, 0, 0};
+		kernel_comm3_1->runAsync(dimensions_comm3_1);
+		kernel_comm3_1->waitAsync();
+	} catch (GSPar::GSParException &ex) {
+		std::cerr << "Exception: " << ex.what() << " - " << ex.getDetails() << std::endl;
+		exit(-1);
+	}
+
+	threads_per_block = MG_THREADS_PER_BLOCK_ON_COMM3;
+	amount_of_work = (n3-2) * MG_THREADS_PER_BLOCK_ON_COMM3;	
+	blocks_per_grid = (ceil((double)(amount_of_work)/(double)(threads_per_block)));
+
+	try {	
+		/* kernel_comm3_2 */		
+		kernel_comm3_2->clearParameters();
+		kernel_comm3_2->setNumThreadsPerBlockForX(threads_per_block);
+		kernel_comm3_2->setParameter(base_u_device);		
+		kernel_comm3_2->setParameter(sizeof(int), &n1);
+		kernel_comm3_2->setParameter(sizeof(int), &n2);
+		kernel_comm3_2->setParameter(sizeof(int), &n3);
+		kernel_comm3_2->setParameter(sizeof(int), &amount_of_work);
+		kernel_comm3_2->setParameter(sizeof(int), &offset);
+
+		unsigned long dimensions_comm3_2[3] = {(unsigned long)amount_of_work, 0, 0};
+		kernel_comm3_2->runAsync(dimensions_comm3_2);
+		kernel_comm3_2->waitAsync();
+	} catch (GSPar::GSParException &ex) {
+		std::cerr << "Exception: " << ex.what() << " - " << ex.getDetails() << std::endl;
+		exit(-1);
+	}
+
+	threads_per_block = MG_THREADS_PER_BLOCK_ON_COMM3;
+	amount_of_work = n2 * MG_THREADS_PER_BLOCK_ON_COMM3;
+	blocks_per_grid = (ceil((double)(amount_of_work)/(double)(threads_per_block)));
+
+	try {	
+		/* kernel_comm3_ */		
+		kernel_comm3_3->clearParameters();
+		kernel_comm3_3->setNumThreadsPerBlockForX(threads_per_block);
+		kernel_comm3_3->setParameter(base_u_device);		
+		kernel_comm3_3->setParameter(sizeof(int), &n1);
+		kernel_comm3_3->setParameter(sizeof(int), &n2);
+		kernel_comm3_3->setParameter(sizeof(int), &n3);
+		kernel_comm3_3->setParameter(sizeof(int), &amount_of_work);
+		kernel_comm3_3->setParameter(sizeof(int), &offset);
+
+		unsigned long dimensions_comm3_3[3] = {(unsigned long)amount_of_work, 0, 0};
+		kernel_comm3_3->runAsync(dimensions_comm3_3);
+		kernel_comm3_3->waitAsync();
+	} catch (GSPar::GSParException &ex) {
+		std::cerr << "Exception: " << ex.what() << " - " << ex.getDetails() << std::endl;
+		exit(-1);
+	}
+}
+
+static void interp_gpu(
+		MemoryObject* base_z_device, 
+		int mm1, 
+		int mm2, 
+		int mm3, 
+		MemoryObject* base_u_device, 
+		int n1, 
+		int n2, 
+		int n3, 
+		int k,
+		int offset_1,
+		int offset_2){
+	if(n1 != 3 && n2 != 3 && n3 != 3){
+		threads_per_block = mm1;
+		amount_of_work = (mm3-1) * (mm2-1) * mm1;	
+		blocks_per_grid = (ceil((double)(amount_of_work)/(double)(threads_per_block)));
+
+		try {		
+			/* kernel_interp */		
+			kernel_interp->clearParameters();
+			kernel_interp->setNumThreadsPerBlockForX(threads_per_block);
+			kernel_interp->setParameter(base_z_device);
+			kernel_interp->setParameter(base_u_device);
+			kernel_interp->setParameter(sizeof(int), &mm1);
+			kernel_interp->setParameter(sizeof(int), &mm2);
+			kernel_interp->setParameter(sizeof(int), &mm3);
+			kernel_interp->setParameter(sizeof(int), &n1);
+			kernel_interp->setParameter(sizeof(int), &n2);
+			kernel_interp->setParameter(sizeof(int), &n3);
+			kernel_interp->setParameter(sizeof(int), &amount_of_work);
+			kernel_interp->setParameter(sizeof(int), &offset_1);
+			kernel_interp->setParameter(sizeof(int), &offset_2);
+
+			unsigned long dimensions_comm3_1[3] = {(unsigned long)amount_of_work, 0, 0};
+			kernel_interp->runAsync(dimensions_comm3_1);
+			kernel_interp->waitAsync();
+		} catch (GSPar::GSParException &ex) {
+			std::cerr << "Exception: " << ex.what() << " - " << ex.getDetails() << std::endl;
+			exit(-1);
+		}
+	}
+}
+
+static void norm2u3_gpu(
+		MemoryObject* r_device, 
+		int n1, 
+		int n2, 
+		int n3, 
+		double* rnm2, 
+		double* rnmu, 
+		int nx, 
+		int ny, 
+		int nz){
+	auto gpus = driver->getGpuList();
+	DEVICE_NAME = gpus[0]->getName();	
+	auto gpu = driver->getGpu(0);	
+
+	double s;
+	double dn, max_rnmu;
+	int temp_size, j;
+
+	dn=1.0*nx*ny*nz;
+	s=0.0;
+	max_rnmu=0.0;
+
+	threads_per_block = MG_THREADS_PER_BLOCK_ON_NORM2U3;
+	amount_of_work = (n2-2) * (n3-2) * threads_per_block;
+	blocks_per_grid = (ceil((double)(amount_of_work)/(double)(threads_per_block)));
+
+	temp_size = amount_of_work / threads_per_block;	
+
+	double* sum_host;	
+	double* max_host;
+
+	MemoryObject* sum_device;
+	MemoryObject* max_device;	
+
+	sum_host=(double*)malloc(temp_size*sizeof(double));
+	max_host=(double*)malloc(temp_size*sizeof(double));
+
+	sum_device = gpu->malloc(temp_size*sizeof(double), sum_host);
+	max_device = gpu->malloc(temp_size*sizeof(double), max_host);
+
+	try {		
+		/* kernel_norm2u3 */		
+		kernel_norm2u3->clearParameters();
+		kernel_norm2u3->setNumThreadsPerBlockForX(threads_per_block);
+		kernel_norm2u3->setParameter(r_device);
+		kernel_norm2u3->setParameter(sizeof(int), &n1);
+		kernel_norm2u3->setParameter(sizeof(int), &n2);
+		kernel_norm2u3->setParameter(sizeof(int), &n3);
+		kernel_norm2u3->setParameter(sum_device);
+		kernel_norm2u3->setParameter(max_device);
+		kernel_norm2u3->setParameter(sizeof(int), &blocks_per_grid);
+		kernel_norm2u3->setParameter(sizeof(int), &amount_of_work);
+
+		unsigned long dimensions_norm2u3[3] = {(unsigned long)amount_of_work, 0, 0};
+		kernel_norm2u3->runAsync(dimensions_norm2u3);
+		kernel_norm2u3->waitAsync();
+	} catch (GSPar::GSParException &ex) {
+		std::cerr << "Exception: " << ex.what() << " - " << ex.getDetails() << std::endl;
+		exit(-1);
+	}
+
+	sum_device->copyOut();
+	max_device->copyOut();
+
+	for(j=0; j<temp_size; j++){
+		s=s+sum_host[j];
+		if(max_rnmu<max_host[j]){max_rnmu=max_host[j];}
+	}
+
+	delete sum_device;
+	delete max_device;
+	free(sum_host);
+	free(max_host);
+
+	*rnmu=max_rnmu;
+	*rnm2=sqrt(s/dn);
+}
+
+static void psinv_gpu(
+		MemoryObject* base_r_device, 
+		MemoryObject* base_u_device, 
+		int n1, 
+		int n2, 
+		int n3, 
+		MemoryObject* c_device, 
+		int k,
+		int offset_1,
+		int offset_2){
+	threads_per_block = n1 > MG_THREADS_PER_BLOCK_ON_PSINV ? MG_THREADS_PER_BLOCK_ON_PSINV : n1;
+	amount_of_work = (n3-2) * (n2-2) * threads_per_block;
+	blocks_per_grid = (ceil((double)(amount_of_work)/(double)(threads_per_block)));
+
+	try {	
+		/* kernel_psinv */		
+		kernel_psinv->clearParameters();
+		kernel_psinv->setNumThreadsPerBlockForX(threads_per_block);
+		kernel_psinv->setParameter(base_r_device);	
+		kernel_psinv->setParameter(base_u_device);	
+		kernel_psinv->setParameter(c_device);	
+		kernel_psinv->setParameter(sizeof(int), &n1);
+		kernel_psinv->setParameter(sizeof(int), &n2);
+		kernel_psinv->setParameter(sizeof(int), &n3);
+		kernel_psinv->setParameter(sizeof(int), &amount_of_work);
+		kernel_psinv->setParameter(sizeof(int), &offset_1);
+		kernel_psinv->setParameter(sizeof(int), &offset_2);
+
+		unsigned long dimensions_kernel_psinv[3] = {(unsigned long)amount_of_work, 0, 0};
+		kernel_psinv->runAsync(dimensions_kernel_psinv);
+		kernel_psinv->waitAsync();
+	} catch (GSPar::GSParException &ex) {
+		std::cerr << "Exception: " << ex.what() << " - " << ex.getDetails() << std::endl;
+		exit(-1);
+	}
+
+	/*
+	 * --------------------------------------------------------------------
+	 * exchange boundary points
+	 * --------------------------------------------------------------------
+	 */
+	comm3_gpu(base_u_device,n1,n2,n3,k, offset_2);
+}
+
+static void resid_gpu(
+		MemoryObject* base_u_device,
+		MemoryObject* base_v_device,
+		MemoryObject* base_r_device,
+		int n1,
+		int n2,
+		int n3,
+		MemoryObject* a_device,
+		int k,
+		int offset_1,
+		int offset_2,
+		int offset_3){
+	threads_per_block = n1 > MG_THREADS_PER_BLOCK_ON_RESID ? MG_THREADS_PER_BLOCK_ON_RESID : n1;
+	amount_of_work = (n3-2) * (n2-2) * threads_per_block;
+	blocks_per_grid = (ceil((double)(amount_of_work)/(double)(threads_per_block)));
+
+	try {
+		/* kernel_resid */		
+		kernel_resid->clearParameters();
+		kernel_resid->setNumThreadsPerBlockForX(threads_per_block);
+		kernel_resid->setParameter(base_u_device);
+		kernel_resid->setParameter(base_v_device);
+		kernel_resid->setParameter(base_r_device);
+		kernel_resid->setParameter(a_device);
+		kernel_resid->setParameter(sizeof(int), &n1);
+		kernel_resid->setParameter(sizeof(int), &n2);
+		kernel_resid->setParameter(sizeof(int), &n3);
+		kernel_resid->setParameter(sizeof(int), &amount_of_work);
+		kernel_resid->setParameter(sizeof(int), &offset_1);
+		kernel_resid->setParameter(sizeof(int), &offset_2);
+		kernel_resid->setParameter(sizeof(int), &offset_3);
+
+		unsigned long dimensions_resid[3] = {(unsigned long)amount_of_work, 0, 0};
+		kernel_resid->runAsync(dimensions_resid);
+		kernel_resid->waitAsync();
+	} catch (GSPar::GSParException &ex) {
+		std::cerr << "Exception: " << ex.what() << " - " << ex.getDetails() << std::endl;
+		exit(-1);
+	}
+
+	/*
+	 * --------------------------------------------------------------------
+	 * exchange boundary data
+	 * --------------------------------------------------------------------
+	 */
+	comm3_gpu(base_r_device, n1, n2, n3, k, offset_3);
+}
+
+static void rprj3_gpu(
+		MemoryObject* base_r_device, 
+		int m1k, 
+		int m2k, 
+		int m3k, 
+		MemoryObject* base_s_device, 
+		int m1j, 
+		int m2j, 
+		int m3j, 
+		int k,
+		int offset_1,
+		int offset_2){
+	int d1,d2,d3,j;
+
+	if(m1k==3){
+		d1=2;
+	}else{
+		d1=1;
+	}
+	if(m2k==3){
+		d2=2;
+	}else{
+		d2=1;
+	}
+	if(m3k==3){
+		d3=2;
+	}else{
+		d3=1;
+	}
+
+	threads_per_block = m1j-1;
+	amount_of_work = (m3j-2) * (m2j-2) * (m1j-1);
+	blocks_per_grid = (ceil((double)(amount_of_work)/(double)(threads_per_block)));
+
+	try {		
+		/* kernel_rprj3 */		
+		kernel_rprj3->clearParameters();
+		kernel_rprj3->setNumThreadsPerBlockForX(threads_per_block);
+		kernel_rprj3->setParameter(base_r_device);
+		kernel_rprj3->setParameter(base_s_device);
+		kernel_rprj3->setParameter(sizeof(int), &m1k);
+		kernel_rprj3->setParameter(sizeof(int), &m2k);
+		kernel_rprj3->setParameter(sizeof(int), &m3k);
+		kernel_rprj3->setParameter(sizeof(int), &m1j);
+		kernel_rprj3->setParameter(sizeof(int), &m2j);
+		kernel_rprj3->setParameter(sizeof(int), &m3j);
+		kernel_rprj3->setParameter(sizeof(int), &d1);
+		kernel_rprj3->setParameter(sizeof(int), &d2);
+		kernel_rprj3->setParameter(sizeof(int), &d3);
+		kernel_rprj3->setParameter(sizeof(int), &amount_of_work);
+		kernel_rprj3->setParameter(sizeof(int), &offset_1);
+		kernel_rprj3->setParameter(sizeof(int), &offset_2);
+
+		unsigned long dimensions_resid[3] = {(unsigned long)amount_of_work, 0, 0};
+		kernel_rprj3->runAsync(dimensions_resid);
+		kernel_rprj3->waitAsync();
+	} catch (GSPar::GSParException &ex) {
+		std::cerr << "Exception: " << ex.what() << " - " << ex.getDetails() << std::endl;
+		exit(-1);
+	}
+	
+	j=k-1;
+	comm3_gpu(base_s_device,m1j,m2j,m3j,j, offset_2);
+}
+
+static void zero3_gpu(MemoryObject* base_z_device, 
+		int n1, 
+		int n2, 
+		int n3,
+		int offset){
+	threads_per_block = MG_THREADS_PER_BLOCK_ON_ZERO3;
+	amount_of_work = n1*n2*n3;	
+	blocks_per_grid = (ceil((double)(amount_of_work)/(double)(threads_per_block)));
+
+	try {		
+		/* kernel_zero3 */		
+		kernel_zero3->clearParameters();
+		kernel_zero3->setNumThreadsPerBlockForX(threads_per_block);
+		kernel_zero3->setParameter(base_z_device);		
+		kernel_zero3->setParameter(sizeof(int), &n1);
+		kernel_zero3->setParameter(sizeof(int), &n2);
+		kernel_zero3->setParameter(sizeof(int), &n3);
+		kernel_zero3->setParameter(sizeof(int), &amount_of_work);
+		kernel_zero3->setParameter(sizeof(int), &offset);
+
+		unsigned long dimensions_zero3[3] = {(unsigned long)amount_of_work, 0, 0};
+		kernel_zero3->runAsync(dimensions_zero3);
+		kernel_zero3->waitAsync();
+	} catch (GSPar::GSParException &ex) {
+		std::cerr << "Exception: " << ex.what() << " - " << ex.getDetails() << std::endl;
+		exit(-1);
+	}
+}
+
+static void mg3P_gpu(
+		MemoryObject* u_device, 
+		MemoryObject* v_device, 
+		MemoryObject* r_device, 
+		MemoryObject* a_device, 
+		MemoryObject* c_device, 
+		int n1, 
+		int n2, 
+		int n3, 
+		int k){
+	int j;
+	/*
+	 * --------------------------------------------------------------------
+	 * down cycle.
+	 * restrict the residual from the find grid to the coarse
+	 * -------------------------------------------------------------------
+	 */
+	for(k = lt; k >= lb+1; k--){
+		j = k-1;
+		rprj3_gpu(r_device, m1[k], m2[k], m3[k], r_device, m1[j], m2[j], m3[j],	k, ir[k] /*offset_1*/, ir[j] /*offset_2*/);
+	}
+	k = lb;
+	/*
+	 * --------------------------------------------------------------------
+	 * compute an approximate solution on the coarsest grid
+	 * --------------------------------------------------------------------
+	 */
+	zero3_gpu(u_device, m1[k], m2[k], m3[k], ir[k] /*offset*/);
+	psinv_gpu(r_device, u_device, m1[k], m2[k], m3[k], c_device, k, ir[k] /*offset_1*/, ir[k] /*offset_2*/);
+	for(k = lb+1; k <= lt-1; k++){
+		j = k-1;
+		/*
+		 * --------------------------------------------------------------------
+		 * prolongate from level k-1  to k
+		 * -------------------------------------------------------------------
+		 */
+		zero3_gpu(u_device, m1[k], m2[k], m3[k], ir[k] /*offset*/);
+		interp_gpu(u_device, m1[j], m2[j], m3[j], u_device, m1[k], m2[k], m3[k], k, ir[j] /*offset_1*/, ir[k] /*offset_2*/);
+		/*
+		 * --------------------------------------------------------------------
+		 * compute residual for level k
+		 * --------------------------------------------------------------------
+		 */
+		resid_gpu(u_device, r_device, r_device, m1[k], m2[k], m3[k], a_device, k, ir[k], ir[k], ir[k]);
+		/*
+		 * --------------------------------------------------------------------
+		 * apply smoother
+		 * --------------------------------------------------------------------
+		 */
+		psinv_gpu(r_device, u_device, m1[k], m2[k], m3[k], c_device, k, ir[k] /*offset_1*/, ir[k] /*offset_2*/);
+	}
+	j = lt - 1; 
+	k = lt;
+	interp_gpu(u_device, m1[j], m2[j], m3[j], u_device, n1, n2, n3, k, ir[j] /*offset_1*/, 0 /*offset_2*/);
+	resid_gpu(u_device, v_device, r_device, n1, n2, n3, a_device, k, 0, 0, 0);
+	psinv_gpu(r_device, u_device, n1, n2, n3, c_device, k, 0 /*offset_1*/, 0 /*offset_2*/);
 }
 
 std::string kernel_source_comm3_1 = GSPAR_STRINGIZE_SOURCE(

@@ -55,11 +55,14 @@
  *      Gabriell Araujo <hexenoften@gmail.com>
  *
  * ------------------------------------------------------------------------------
+ * 
+ * How to run:
+ *      export LD_LIBRARY_PATH=../lib/gspar/bin:$LD_LIBRARY_PATH
+ *      clear && make clean && make is CLASS=S GPU_DRIVER=CUDA && bin/is.S 
+ *      clear && make clean && make is CLASS=S GPU_DRIVER=OPENCL && bin/is.S 
+ * 
+ * ------------------------------------------------------------------------------
  */
-
-// export LD_LIBRARY_PATH=../lib/gspar/bin:$LD_LIBRARY_PATH
-// clear && make clean && make ep CLASS=S GPU_DRIVER=CUDA && bin/ep.S 
-// clear && make clean && make ep CLASS=S GPU_DRIVER=OPENCL && bin/ep.S 
 
 #include <iostream>
 #include <chrono>
@@ -84,7 +87,7 @@ using namespace GSPar::Pattern;
 using namespace std;
 
 #define PROFILING_TOTAL_TIME (0)
-#define THREADS_PER_BLOCK (256)
+#define IS_THREADS_PER_BLOCK_ON_RANK 256
 
 /*****************************************************************/
 /* For serial IS, buckets are not really req'd to solve NPB1 IS  */
@@ -272,8 +275,8 @@ void rank_gpu(int iteration);
 void setup_gpu();
 
 /* gpu data */
-static int sum_device[THREADS_PER_BLOCK*THREADS_PER_BLOCK];
-static int summ_device[THREADS_PER_BLOCK*THREADS_PER_BLOCK];
+static int sum_device[IS_THREADS_PER_BLOCK_ON_RANK*IS_THREADS_PER_BLOCK_ON_RANK];
+static int summ_device[IS_THREADS_PER_BLOCK_ON_RANK*IS_THREADS_PER_BLOCK_ON_RANK];
 //
 extern std::string source_additional_routines;	
 //
@@ -934,7 +937,7 @@ void setup_gpu(){
 
 	auto gpu = driver->getGpu(0);
 
-	threads_per_block_on_rank = THREADS_PER_BLOCK;
+	threads_per_block_on_rank = IS_THREADS_PER_BLOCK_ON_RANK;
 
 	threads_per_block_on_rank_1=1;
 	threads_per_block_on_rank_2=threads_per_block_on_rank;
@@ -967,7 +970,7 @@ void setup_gpu(){
 	size_key_array_device = sizeof(int) * SIZE_OF_BUFFERS;
 	size_partial_verify_vals_device = sizeof(int) * TEST_ARRAY_SIZE;
 	size_key_buff1_device = sizeof(int) * MAX_KEY;
-	size_summ_device_device = sizeof(int) * THREADS_PER_BLOCK * THREADS_PER_BLOCK;
+	size_summ_device_device = sizeof(int) * IS_THREADS_PER_BLOCK_ON_RANK * IS_THREADS_PER_BLOCK_ON_RANK;
 	size_passed_verification_device = sizeof(int);
 
 	test_index_array_device = gpu->malloc(size_test_index_array_device, test_index_array);
@@ -992,23 +995,17 @@ void setup_gpu(){
 	/* kernel rank 1 */
 	try {
 		unsigned long dims[3] = {(long unsigned int)amount_of_work_on_rank_1, 0, 0}; 
-
 		kernel_rank_1 = new Map(source_kernel_rank_1);
-
 		kernel_rank_1->setStdVarNames({"gspar_thread_id"});
-
 		kernel_rank_1->setParameter<int*>("key_array", key_array_device, GSPAR_PARAM_PRESENT);
 		kernel_rank_1->setParameter<int*>("partial_verify_vals", partial_verify_vals_device, GSPAR_PARAM_PRESENT);
 		kernel_rank_1->setParameter<int*>("test_index_array", test_index_array_device, GSPAR_PARAM_PRESENT);
 		kernel_rank_1->setParameter("iteration", iteration);
 		kernel_rank_1->setParameter("MAX_ITERATIONS", MAX_ITERATIONS);
 		kernel_rank_1->setParameter("MAX_KEY", MAX_KEY);
-		kernel_rank_1->setParameter("TEST_ARRAY_SIZE", TEST_ARRAY_SIZE);		
-
+		kernel_rank_1->setParameter("TEST_ARRAY_SIZE", TEST_ARRAY_SIZE);	
 		kernel_rank_1->setNumThreadsPerBlockForX(threads_per_block_on_rank_1);
-
 		kernel_rank_1->addExtraKernelCode(source_additional_routines);
-
 		kernel_rank_1->compile<Instance>(dims);
 	} catch (GSPar::GSParException &ex) {
 		std::cerr << "Exception: " << ex.what() << " - " << ex.getDetails() << std::endl;
@@ -1018,18 +1015,12 @@ void setup_gpu(){
 	/* kernel rank 2 */
 	try {
 		unsigned long dims[3] = {(long unsigned int)amount_of_work_on_rank_2, 0, 0}; 
-
 		kernel_rank_2 = new Map(source_kernel_rank_2);
-
 		kernel_rank_2->setStdVarNames({"gspar_thread_id"});
-
 		kernel_rank_2->setParameter<int*>("key_buff1", key_buff1_device, GSPAR_PARAM_PRESENT);
 		kernel_rank_2->setParameter("MAX_KEY", MAX_KEY);
-
 		kernel_rank_2->setNumThreadsPerBlockForX(threads_per_block_on_rank_2);
-
 		kernel_rank_2->addExtraKernelCode(source_additional_routines);
-
 		kernel_rank_2->compile<Instance>(dims);
 	} catch (GSPar::GSParException &ex) {
 		std::cerr << "Exception: " << ex.what() << " - " << ex.getDetails() << std::endl;
@@ -1039,18 +1030,12 @@ void setup_gpu(){
 	/* kernel rank 3 */
 	try {
 		unsigned long dims[3] = {(long unsigned int)amount_of_work_on_rank_3, 0, 0}; 
-
 		kernel_rank_3 = new Map(source_kernel_rank_3);
-
 		kernel_rank_3->setStdVarNames({"gspar_thread_id"});
-
 		kernel_rank_3->setParameter<int*>("key_buff1", key_buff1_device, GSPAR_PARAM_PRESENT);
 		kernel_rank_3->setParameter<int*>("key_array", key_array_device, GSPAR_PARAM_PRESENT);
-
 		kernel_rank_3->setNumThreadsPerBlockForX(threads_per_block_on_rank_3);
-
 		kernel_rank_3->addExtraKernelCode(source_additional_routines);
-
 		kernel_rank_3->compile<Instance>(dims);
 	} catch (GSPar::GSParException &ex) {
 		std::cerr << "Exception: " << ex.what() << " - " << ex.getDetails() << std::endl;
@@ -1060,20 +1045,14 @@ void setup_gpu(){
 	/* kernel rank 4 */
 	try {
 		unsigned long dims[3] = {(long unsigned int)amount_of_work_on_rank_4, 0, 0}; 
-
 		kernel_rank_4 = new Map(source_kernel_rank_4);
-
 		kernel_rank_4->setStdVarNames({"gspar_thread_id"});
-
 		kernel_rank_4->setParameter<int*>("source", key_buff1_device, GSPAR_PARAM_PRESENT);
 		kernel_rank_4->setParameter<int*>("sum", summ_device_device, GSPAR_PARAM_PRESENT);
 		kernel_rank_4->setParameter("MAX_KEY", MAX_KEY);
 		kernel_rank_4->setParameter("number_of_blocks", blocks_per_grid_on_rank_4);
-
 		kernel_rank_4->setNumThreadsPerBlockForX(threads_per_block_on_rank_4);
-
 		kernel_rank_4->addExtraKernelCode(source_additional_routines);
-
 		kernel_rank_4->compile<Instance>(dims);
 	} catch (GSPar::GSParException &ex) {
 		std::cerr << "Exception: " << ex.what() << " - " << ex.getDetails() << std::endl;
@@ -1083,19 +1062,13 @@ void setup_gpu(){
 	/* kernel rank 5 */
 	try {
 		unsigned long dims[3] = {(long unsigned int)amount_of_work_on_rank_5, 0, 0}; 
-
 		kernel_rank_5 = new Map(source_kernel_rank_5);
-
 		kernel_rank_5->setStdVarNames({"gspar_thread_id"});
-
 		kernel_rank_5->setParameter<int*>("source", summ_device_device, GSPAR_PARAM_PRESENT);
 		kernel_rank_5->setParameter<int*>("destiny", summ_device_device, GSPAR_PARAM_PRESENT);
-		kernel_rank_5->setParameter("MAX_KEY", MAX_KEY);		
-
+		kernel_rank_5->setParameter("MAX_KEY", MAX_KEY);	
 		kernel_rank_5->setNumThreadsPerBlockForX(threads_per_block_on_rank_5);
-
 		kernel_rank_5->addExtraKernelCode(source_additional_routines);
-
 		kernel_rank_5->compile<Instance>(dims);
 	} catch (GSPar::GSParException &ex) {
 		std::cerr << "Exception: " << ex.what() << " - " << ex.getDetails() << std::endl;
@@ -1105,20 +1078,14 @@ void setup_gpu(){
 	/* kernel rank 6 */
 	try {
 		unsigned long dims[3] = {(long unsigned int)amount_of_work_on_rank_6, 0, 0}; 
-
 		kernel_rank_6 = new Map(source_kernel_rank_6);
-
 		kernel_rank_6->setStdVarNames({"gspar_thread_id"});
-
 		kernel_rank_6->setParameter<int*>("source", key_buff1_device, GSPAR_PARAM_PRESENT);
 		kernel_rank_6->setParameter<int*>("offset", summ_device_device, GSPAR_PARAM_PRESENT);
 		kernel_rank_6->setParameter("MAX_KEY", MAX_KEY);
-		kernel_rank_6->setParameter("number_of_blocks", blocks_per_grid_on_rank_6);			
-
+		kernel_rank_6->setParameter("number_of_blocks", blocks_per_grid_on_rank_6);	
 		kernel_rank_6->setNumThreadsPerBlockForX(threads_per_block_on_rank_6);
-
 		kernel_rank_6->addExtraKernelCode(source_additional_routines);
-
 		kernel_rank_6->compile<Instance>(dims);
 	} catch (GSPar::GSParException &ex) {
 		std::cerr << "Exception: " << ex.what() << " - " << ex.getDetails() << std::endl;
@@ -1128,11 +1095,8 @@ void setup_gpu(){
 	/* kernel rank 7 */
 	try {
 		unsigned long dims[3] = {(long unsigned int)amount_of_work_on_rank_7, 0, 0}; 
-
 		kernel_rank_7 = new Map(source_kernel_rank_7);
-
 		kernel_rank_7->setStdVarNames({"gspar_thread_id"});
-
 		kernel_rank_7->setParameter<int*>("partial_verify_vals", partial_verify_vals_device, GSPAR_PARAM_PRESENT);
 		kernel_rank_7->setParameter<int*>("key_buff_ptr", key_buff1_device, GSPAR_PARAM_PRESENT);
 		kernel_rank_7->setParameter<int*>("test_rank_array", test_rank_array_device, GSPAR_PARAM_PRESENT);
@@ -1141,11 +1105,8 @@ void setup_gpu(){
 		kernel_rank_7->setParameter("TEST_ARRAY_SIZE", TEST_ARRAY_SIZE);
 		kernel_rank_7->setParameter("CLASS", CLASS);
 		kernel_rank_7->setParameter("NUM_KEYS", NUM_KEYS);
-
 		kernel_rank_7->setNumThreadsPerBlockForX(threads_per_block_on_rank_7);
-
 		kernel_rank_7->addExtraKernelCode(source_additional_routines);
-
 		kernel_rank_7->compile<Instance>(dims);
 	} catch (GSPar::GSParException &ex) {
 		std::cerr << "Exception: " << ex.what() << " - " << ex.getDetails() << std::endl;
@@ -1154,42 +1115,29 @@ void setup_gpu(){
 }
 
 std::string source_kernel_rank_1 = GSPAR_STRINGIZE_SOURCE(
-	//BEGIN
-
 	key_array[iteration] = iteration;
 	key_array[iteration+MAX_ITERATIONS] = MAX_KEY - iteration;
 	for(int i=0; i<TEST_ARRAY_SIZE; i++){
 		partial_verify_vals[i] = key_array[test_index_array[i]];
 	}
-
-	//END
 );
 
 std::string source_kernel_rank_2 = GSPAR_STRINGIZE_SOURCE(
-	//BEGIN
-
 	int thread_id = gspar_get_global_id(0);
 
 	key_buff1[thread_id] = 0;
-
-	//END
 );
 
 std::string source_kernel_rank_3 = GSPAR_STRINGIZE_SOURCE(
-	//BEGIN
-
 	int thread_id = gspar_get_global_id(0);
 
 	gspar_atomic_add_int(&key_buff1[key_array[thread_id]], 1);
-
-	//END
 );
 
 std::string source_kernel_rank_4 = GSPAR_STRINGIZE_SOURCE(
-	//BEGIN
 	int thread_id = gspar_get_global_id(0);
 
-	GSPAR_DEVICE_SHARED_MEMORY int shared_data[2*1024];
+	GSPAR_DEVICE_SHARED_MEMORY int shared_data[2*IS_THREADS_PER_BLOCK_ON_RANK];
 
 	int* destiny = source;
 
@@ -1216,14 +1164,10 @@ std::string source_kernel_rank_4 = GSPAR_STRINGIZE_SOURCE(
 
 	gspar_synchronize_local_threads();
 	if(gspar_get_thread_id(0)==0){sum[gspar_get_block_id(0)]=destiny[end-1];}
-
-	//END
 );
 
 std::string source_kernel_rank_5 = GSPAR_STRINGIZE_SOURCE(
-	//BEGIN
-
-	GSPAR_DEVICE_SHARED_MEMORY int shared_data[2*1024];
+	GSPAR_DEVICE_SHARED_MEMORY int shared_data[2*IS_THREADS_PER_BLOCK_ON_RANK];
 
 	shared_data[gspar_get_thread_id(0)] = 0;
 	int position = gspar_get_block_size(0) + gspar_get_thread_id(0);
@@ -1239,13 +1183,9 @@ std::string source_kernel_rank_5 = GSPAR_STRINGIZE_SOURCE(
 	gspar_synchronize_local_threads();
 
 	destiny[gspar_get_thread_id(0)] = shared_data[position - 1];
-	
-	//END
 );
 
 std::string source_kernel_rank_6 = GSPAR_STRINGIZE_SOURCE(
-	//BEGIN
-
 	int* destiny = source;
 	int factor = MAX_KEY / number_of_blocks;
 	int start = factor * gspar_get_block_id(0);
@@ -1254,13 +1194,9 @@ std::string source_kernel_rank_6 = GSPAR_STRINGIZE_SOURCE(
 	for(int i=start; i<end; i+=gspar_get_block_size(0)){
 		destiny[i + gspar_get_thread_id(0)] = source[i + gspar_get_thread_id(0)] + sum;
 	}
-
-	//END
 );
 
 std::string source_kernel_rank_7 = GSPAR_STRINGIZE_SOURCE(
-	//BEGIN
-
 	int i, k;
 	int passed_verification = 0;
 	for(i=0; i<TEST_ARRAY_SIZE; i++){                                         
@@ -1356,11 +1292,7 @@ std::string source_kernel_rank_7 = GSPAR_STRINGIZE_SOURCE(
 	}
 
 	*passed_verification_device += passed_verification;
-
-	//END
 );
 
-extern std::string source_additional_routines = 
-"\n"
-"#define THREADS_PER_BLOCK 256"
-"\n";	
+std::string source_additional_routines =
+    "#define IS_THREADS_PER_BLOCK_ON_RANK " + std::to_string(IS_THREADS_PER_BLOCK_ON_RANK) + "\n";

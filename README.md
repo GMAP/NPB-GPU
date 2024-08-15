@@ -2,12 +2,13 @@
 
 This is a repository aimed at providing GPU parallel codes with different parallel APIs for the NAS Parallel Benchmarks ([NPB](https://www.nas.nasa.gov/publications/npb.html)) from a C/C++ version ([NPB-CPP](https://github.com/GMAP/NPB-CPP)). You can also contribute with this project, writing issues and pull requests. :smile:
 
+:sound:*News:* CUDA versions for pseudo-applications added and IS improved. :date:11/Feb/2021
 
 :sound:*News:* Parametrization support for configuring number of threads per block and CUDA parallelism optimizations. :date:25/Jul/2021
 
-:sound:*News:* CUDA versions for pseudo-applications added and IS improved. :date:11/Feb/2021
-
 :sound:*News:* Paper published in the journal Software: Practice and Experience (SPE). :date:29/Nov/2021
+
+:sound:*News:* A new GPU parallel implementation is now available using the [GSParLib API](https://github.com/GMAP/GSParLib). :date:15/Aug/2024
 
 
 ## How to cite our work :+1:

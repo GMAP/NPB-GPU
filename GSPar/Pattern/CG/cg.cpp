@@ -55,11 +55,14 @@
  *      Gabriell Araujo <hexenoften@gmail.com>
  *
  * ------------------------------------------------------------------------------
+ * 
+ * How to run:
+ *      export LD_LIBRARY_PATH=../lib/gspar/bin:$LD_LIBRARY_PATH
+ *      clear && make clean && make cg CLASS=S GPU_DRIVER=CUDA && bin/cg.S 
+ *      clear && make clean && make cg CLASS=S GPU_DRIVER=OPENCL && bin/cg.S 
+ * 
+ * ------------------------------------------------------------------------------
  */
-
-// export LD_LIBRARY_PATH=../lib/gspar/bin:$LD_LIBRARY_PATH
-// clear && make clean && make ep CLASS=S GPU_DRIVER=CUDA && bin/ep.S 
-// clear && make clean && make ep CLASS=S GPU_DRIVER=OPENCL && bin/ep.S 
 
 #include <iostream>
 #include <chrono>
@@ -103,7 +106,17 @@ using namespace std;
 #define NZ (NA*(NONZER+1)*(NONZER+1))
 #define NAZ (NA*(NONZER+1))
 #define PROFILING_TOTAL_TIME (0)
-#define THREADS_PER_BLOCK (32)
+#define CG_THREADS_PER_BLOCK_ON_KERNEL_ONE 1024
+#define CG_THREADS_PER_BLOCK_ON_KERNEL_TWO 256
+#define CG_THREADS_PER_BLOCK_ON_KERNEL_THREE 64
+#define CG_THREADS_PER_BLOCK_ON_KERNEL_FOUR 256
+#define CG_THREADS_PER_BLOCK_ON_KERNEL_FIVE 64
+#define CG_THREADS_PER_BLOCK_ON_KERNEL_SIX 256
+#define CG_THREADS_PER_BLOCK_ON_KERNEL_SEVEN 512
+#define CG_THREADS_PER_BLOCK_ON_KERNEL_EIGHT 64
+#define CG_THREADS_PER_BLOCK_ON_KERNEL_NINE 512
+#define CG_THREADS_PER_BLOCK_ON_KERNEL_TEN 256
+#define CG_THREADS_PER_BLOCK_ON_KERNEL_ELEVEN 512
 
 /* global variables */
 #if defined(DO_NOT_ALLOCATE_ARRAYS_WITH_DYNAMIC_MEMORY_AND_AS_SINGLE_DIMENSION)
@@ -1117,29 +1130,29 @@ static void setup_gpu(){
 
 	auto gpu = driver->getGpu(0);
 	
-	threads_per_block_on_kernel_one=THREADS_PER_BLOCK;
-	threads_per_block_on_kernel_two=THREADS_PER_BLOCK;
-	threads_per_block_on_kernel_three=THREADS_PER_BLOCK;
-	threads_per_block_on_kernel_four=THREADS_PER_BLOCK;
-	threads_per_block_on_kernel_five=THREADS_PER_BLOCK;
-	threads_per_block_on_kernel_six=THREADS_PER_BLOCK;
-	threads_per_block_on_kernel_seven=THREADS_PER_BLOCK;
-	threads_per_block_on_kernel_eight=THREADS_PER_BLOCK;
-	threads_per_block_on_kernel_nine=THREADS_PER_BLOCK;
-	threads_per_block_on_kernel_ten=THREADS_PER_BLOCK;
-	threads_per_block_on_kernel_eleven=THREADS_PER_BLOCK;
+	threads_per_block_on_kernel_one=CG_THREADS_PER_BLOCK_ON_KERNEL_ONE;
+	threads_per_block_on_kernel_two=CG_THREADS_PER_BLOCK_ON_KERNEL_TWO;
+	threads_per_block_on_kernel_three=CG_THREADS_PER_BLOCK_ON_KERNEL_THREE;
+	threads_per_block_on_kernel_four=CG_THREADS_PER_BLOCK_ON_KERNEL_FOUR;
+	threads_per_block_on_kernel_five=CG_THREADS_PER_BLOCK_ON_KERNEL_FIVE;
+	threads_per_block_on_kernel_six=CG_THREADS_PER_BLOCK_ON_KERNEL_SIX;
+	threads_per_block_on_kernel_seven=CG_THREADS_PER_BLOCK_ON_KERNEL_SEVEN;
+	threads_per_block_on_kernel_eight=CG_THREADS_PER_BLOCK_ON_KERNEL_EIGHT;
+	threads_per_block_on_kernel_nine=CG_THREADS_PER_BLOCK_ON_KERNEL_NINE;
+	threads_per_block_on_kernel_ten=CG_THREADS_PER_BLOCK_ON_KERNEL_TEN;
+	threads_per_block_on_kernel_eleven=CG_THREADS_PER_BLOCK_ON_KERNEL_ELEVEN;
 
-	amount_of_work_on_kernel_one = (ceil(double(NA)/double(THREADS_PER_BLOCK))*THREADS_PER_BLOCK);
-	amount_of_work_on_kernel_two = (ceil(double(NA)/double(THREADS_PER_BLOCK))*THREADS_PER_BLOCK);
+	amount_of_work_on_kernel_one = (ceil(double(NA)/double(CG_THREADS_PER_BLOCK_ON_KERNEL_ONE))*CG_THREADS_PER_BLOCK_ON_KERNEL_ONE);
+	amount_of_work_on_kernel_two = (ceil(double(NA)/double(CG_THREADS_PER_BLOCK_ON_KERNEL_TWO))*CG_THREADS_PER_BLOCK_ON_KERNEL_TWO);
 	amount_of_work_on_kernel_three = NA * threads_per_block_on_kernel_three;
-	amount_of_work_on_kernel_four = (ceil(double(NA)/double(THREADS_PER_BLOCK))*THREADS_PER_BLOCK);
-	amount_of_work_on_kernel_five = (ceil(double(NA)/double(THREADS_PER_BLOCK))*THREADS_PER_BLOCK);
-	amount_of_work_on_kernel_six = (ceil(double(NA)/double(THREADS_PER_BLOCK))*THREADS_PER_BLOCK);
-	amount_of_work_on_kernel_seven = (ceil(double(NA)/double(THREADS_PER_BLOCK))*THREADS_PER_BLOCK);
+	amount_of_work_on_kernel_four = (ceil(double(NA)/double(CG_THREADS_PER_BLOCK_ON_KERNEL_FOUR))*CG_THREADS_PER_BLOCK_ON_KERNEL_FOUR);
+	amount_of_work_on_kernel_five = (ceil(double(NA)/double(CG_THREADS_PER_BLOCK_ON_KERNEL_FIVE))*CG_THREADS_PER_BLOCK_ON_KERNEL_FIVE);
+	amount_of_work_on_kernel_six = (ceil(double(NA)/double(CG_THREADS_PER_BLOCK_ON_KERNEL_SIX))*CG_THREADS_PER_BLOCK_ON_KERNEL_SIX);
+	amount_of_work_on_kernel_seven = (ceil(double(NA)/double(CG_THREADS_PER_BLOCK_ON_KERNEL_SEVEN))*CG_THREADS_PER_BLOCK_ON_KERNEL_SEVEN);
 	amount_of_work_on_kernel_eight = NA * threads_per_block_on_kernel_eight;
-	amount_of_work_on_kernel_nine = (ceil(double(NA)/double(THREADS_PER_BLOCK))*THREADS_PER_BLOCK);
-	amount_of_work_on_kernel_ten = (ceil(double(NA)/double(THREADS_PER_BLOCK))*THREADS_PER_BLOCK);
-	amount_of_work_on_kernel_eleven = (ceil(double(NA)/double(THREADS_PER_BLOCK))*THREADS_PER_BLOCK);
+	amount_of_work_on_kernel_nine = (ceil(double(NA)/double(CG_THREADS_PER_BLOCK_ON_KERNEL_NINE))*CG_THREADS_PER_BLOCK_ON_KERNEL_NINE);
+	amount_of_work_on_kernel_ten = (ceil(double(NA)/double(CG_THREADS_PER_BLOCK_ON_KERNEL_TEN))*CG_THREADS_PER_BLOCK_ON_KERNEL_TEN);
+	amount_of_work_on_kernel_eleven = (ceil(double(NA)/double(CG_THREADS_PER_BLOCK_ON_KERNEL_ELEVEN))*CG_THREADS_PER_BLOCK_ON_KERNEL_ELEVEN);
 
 	blocks_per_grid_on_kernel_one=(ceil((double)NA/(double)threads_per_block_on_kernel_one));
 	blocks_per_grid_on_kernel_two=(ceil((double)NA/(double)threads_per_block_on_kernel_two));   
@@ -1153,7 +1166,7 @@ static void setup_gpu(){
 	blocks_per_grid_on_kernel_ten=(ceil((double)NA/(double)threads_per_block_on_kernel_ten));
 	blocks_per_grid_on_kernel_eleven=(ceil((double)NA/(double)threads_per_block_on_kernel_eleven));
 
-	global_data_elements=ceil(double(NA)/double(THREADS_PER_BLOCK));
+	global_data_elements=ceil(double(NA)/double(gpu->getWarpSize()));
 
 	size_global_data=global_data_elements*sizeof(double);
 	size_colidx_device=NZ*sizeof(int);
@@ -1220,22 +1233,16 @@ static void setup_gpu(){
 	/* kernel one */
 	try {
 		unsigned long dims[3] = {(long unsigned int)amount_of_work_on_kernel_one, 0, 0}; 
-
 		kernel_one_map = new Map(source_kernel_one_map);
-
 		kernel_one_map->setStdVarNames({"gspar_thread_id"});
-
 		kernel_one_map->setParameter<double*>("q", q_device, GSPAR_PARAM_PRESENT);
 		kernel_one_map->setParameter<double*>("z", z_device, GSPAR_PARAM_PRESENT);
 		kernel_one_map->setParameter<double*>("r", r_device, GSPAR_PARAM_PRESENT);
 		kernel_one_map->setParameter<double*>("p", p_device, GSPAR_PARAM_PRESENT);
 		kernel_one_map->setParameter<double*>("x", x_device, GSPAR_PARAM_PRESENT);	
-		kernel_one_map->setParameter("NA", NA);			
-
-		kernel_one_map->setNumThreadsPerBlockForX(THREADS_PER_BLOCK);
-
+		kernel_one_map->setParameter("NA", NA);
+		kernel_one_map->setNumThreadsPerBlockForX(threads_per_block_on_kernel_one);
 		kernel_one_map->addExtraKernelCode(source_additional_routines);
-
 		kernel_one_map->compile<Instance>(dims);
 	} catch (GSPar::GSParException &ex) {
 		std::cerr << "Exception: " << ex.what() << " - " << ex.getDetails() << std::endl;
@@ -1244,20 +1251,14 @@ static void setup_gpu(){
 
 	/* kernel two */
 	try {
-		unsigned long dims[3] = {(long unsigned int)amount_of_work_on_kernel_two, 0, 0}; 
-
+		unsigned long dims[3] = {(long unsigned int)amount_of_work_on_kernel_two, 0, 0};
 		kernel_two_map = new Map(source_kernel_two_map);
-
 		kernel_two_map->setStdVarNames({"gspar_thread_id"});
-
 		kernel_two_map->setParameter<double*>("r", r_device, GSPAR_PARAM_PRESENT);
 		kernel_two_map->setParameter<double*>("global_data", global_data_device, GSPAR_PARAM_PRESENT);
-		kernel_two_map->setParameter("NA", NA);	
-
-		kernel_two_map->setNumThreadsPerBlockForX(THREADS_PER_BLOCK);
-
+		kernel_two_map->setParameter("NA", NA);
+		kernel_two_map->setNumThreadsPerBlockForX(threads_per_block_on_kernel_two);
 		kernel_two_map->addExtraKernelCode(source_additional_routines);
-
 		kernel_two_map->compile<Instance>(dims);
 	} catch (GSPar::GSParException &ex) {
 		std::cerr << "Exception: " << ex.what() << " - " << ex.getDetails() << std::endl;
@@ -1266,23 +1267,17 @@ static void setup_gpu(){
 
 	/* kernel three */
 	try {
-		unsigned long dims[3] = {(long unsigned int)amount_of_work_on_kernel_three, 0, 0}; 
-
+		unsigned long dims[3] = {(long unsigned int)amount_of_work_on_kernel_three, 0, 0};
 		kernel_three_map = new Map(source_kernel_three_map);
-
 		kernel_three_map->setStdVarNames({"gspar_thread_id"});
-
 		kernel_three_map->setParameter<int*>("rowstr", rowstr_device, GSPAR_PARAM_PRESENT);
 		kernel_three_map->setParameter<double*>("a", a_device, GSPAR_PARAM_PRESENT);
 		kernel_three_map->setParameter<double*>("p", p_device, GSPAR_PARAM_PRESENT);
 		kernel_three_map->setParameter<int*>("colidx", colidx_device, GSPAR_PARAM_PRESENT);
 		kernel_three_map->setParameter<double*>("q", q_device, GSPAR_PARAM_PRESENT);		
 		kernel_three_map->setParameter("NA", NA);	
-
-		kernel_three_map->setNumThreadsPerBlockForX(THREADS_PER_BLOCK);
-
+		kernel_three_map->setNumThreadsPerBlockForX(threads_per_block_on_kernel_three);
 		kernel_three_map->addExtraKernelCode(source_additional_routines);
-
 		kernel_three_map->compile<Instance>(dims);
 	} catch (GSPar::GSParException &ex) {
 		std::cerr << "Exception: " << ex.what() << " - " << ex.getDetails() << std::endl;
@@ -1291,21 +1286,15 @@ static void setup_gpu(){
 
 	/* kernel four */
 	try {
-		unsigned long dims[3] = {(long unsigned int)amount_of_work_on_kernel_four, 0, 0}; 
-
+		unsigned long dims[3] = {(long unsigned int)amount_of_work_on_kernel_four, 0, 0};
 		kernel_four_map = new Map(source_kernel_four_map);
-
 		kernel_four_map->setStdVarNames({"gspar_thread_id"});		
-		
 		kernel_four_map->setParameter<double*>("p", p_device, GSPAR_PARAM_PRESENT);
 		kernel_four_map->setParameter<double*>("q", q_device, GSPAR_PARAM_PRESENT);
 		kernel_four_map->setParameter<double*>("global_data", global_data_device, GSPAR_PARAM_PRESENT);
 		kernel_four_map->setParameter("NA", NA);	
-
-		kernel_four_map->setNumThreadsPerBlockForX(THREADS_PER_BLOCK);
-
+		kernel_four_map->setNumThreadsPerBlockForX(threads_per_block_on_kernel_four);
 		kernel_four_map->addExtraKernelCode(source_additional_routines);
-
 		kernel_four_map->compile<Instance>(dims);
 	} catch (GSPar::GSParException &ex) {
 		std::cerr << "Exception: " << ex.what() << " - " << ex.getDetails() << std::endl;
@@ -1315,22 +1304,16 @@ static void setup_gpu(){
 	/* kernel five */
 	try {
 		unsigned long dims[3] = {(long unsigned int)amount_of_work_on_kernel_five, 0, 0}; 
-
 		kernel_five_map = new Map(source_kernel_five_map);
-
 		kernel_five_map->setStdVarNames({"gspar_thread_id"});			
-		
 		kernel_five_map->setParameter<double*>("p", p_device, GSPAR_PARAM_PRESENT);
 		kernel_five_map->setParameter<double*>("q", q_device, GSPAR_PARAM_PRESENT);
 		kernel_five_map->setParameter<double*>("r", r_device, GSPAR_PARAM_PRESENT);
 		kernel_five_map->setParameter<double*>("z", z_device, GSPAR_PARAM_PRESENT);		
 		kernel_five_map->setParameter("alpha", alpha);
 		kernel_five_map->setParameter("NA", NA);	
-
-		kernel_five_map->setNumThreadsPerBlockForX(THREADS_PER_BLOCK);
-
+		kernel_five_map->setNumThreadsPerBlockForX(threads_per_block_on_kernel_five);
 		kernel_five_map->addExtraKernelCode(source_additional_routines);
-
 		kernel_five_map->compile<Instance>(dims);
 	} catch (GSPar::GSParException &ex) {
 		std::cerr << "Exception: " << ex.what() << " - " << ex.getDetails() << std::endl;
@@ -1340,19 +1323,13 @@ static void setup_gpu(){
 	/* kernel six */
 	try {
 		unsigned long dims[3] = {(long unsigned int)amount_of_work_on_kernel_six, 0, 0}; 
-
 		kernel_six_map = new Map(source_kernel_six_map);
-
 		kernel_six_map->setStdVarNames({"gspar_thread_id"});
-
 		kernel_six_map->setParameter<double*>("r", r_device, GSPAR_PARAM_PRESENT);
 		kernel_six_map->setParameter<double*>("global_data", global_data_device, GSPAR_PARAM_PRESENT);
 		kernel_six_map->setParameter("NA", NA);	
-
-		kernel_six_map->setNumThreadsPerBlockForX(THREADS_PER_BLOCK);
-
+		kernel_six_map->setNumThreadsPerBlockForX(threads_per_block_on_kernel_six);
 		kernel_six_map->addExtraKernelCode(source_additional_routines);
-
 		kernel_six_map->compile<Instance>(dims);
 	} catch (GSPar::GSParException &ex) {
 		std::cerr << "Exception: " << ex.what() << " - " << ex.getDetails() << std::endl;
@@ -1362,20 +1339,14 @@ static void setup_gpu(){
 	/* kernel seven */
 	try {
 		unsigned long dims[3] = {(long unsigned int)amount_of_work_on_kernel_seven, 0, 0}; 
-
 		kernel_seven_map = new Map(source_kernel_seven_map);
-
-		kernel_seven_map->setStdVarNames({"gspar_thread_id"});		
-
+		kernel_seven_map->setStdVarNames({"gspar_thread_id"});	
 		kernel_seven_map->setParameter<double*>("p", p_device, GSPAR_PARAM_PRESENT);
 		kernel_seven_map->setParameter<double*>("r", r_device, GSPAR_PARAM_PRESENT);
 		kernel_seven_map->setParameter("beta", beta);
 		kernel_seven_map->setParameter("NA", NA);	
-
-		kernel_seven_map->setNumThreadsPerBlockForX(THREADS_PER_BLOCK);
-
+		kernel_seven_map->setNumThreadsPerBlockForX(threads_per_block_on_kernel_seven);
 		kernel_seven_map->addExtraKernelCode(source_additional_routines);
-
 		kernel_seven_map->compile<Instance>(dims);
 	} catch (GSPar::GSParException &ex) {
 		std::cerr << "Exception: " << ex.what() << " - " << ex.getDetails() << std::endl;
@@ -1385,22 +1356,16 @@ static void setup_gpu(){
 	/* kernel eight */
 	try {
 		unsigned long dims[3] = {(long unsigned int)amount_of_work_on_kernel_eight, 0, 0}; 
-
 		kernel_eight_map = new Map(source_kernel_eight_map);
-
-		kernel_eight_map->setStdVarNames({"gspar_thread_id"});
-		
+		kernel_eight_map->setStdVarNames({"gspar_thread_id"});		
 		kernel_eight_map->setParameter<int*>("rowstr", rowstr_device, GSPAR_PARAM_PRESENT);
 		kernel_eight_map->setParameter<double*>("a", a_device, GSPAR_PARAM_PRESENT);
 		kernel_eight_map->setParameter<double*>("z", z_device, GSPAR_PARAM_PRESENT);
 		kernel_eight_map->setParameter<int*>("colidx", colidx_device, GSPAR_PARAM_PRESENT);
 		kernel_eight_map->setParameter<double*>("r", r_device, GSPAR_PARAM_PRESENT);
 		kernel_eight_map->setParameter("NA", NA);	
-
-		kernel_eight_map->setNumThreadsPerBlockForX(THREADS_PER_BLOCK);
-
+		kernel_eight_map->setNumThreadsPerBlockForX(threads_per_block_on_kernel_eight);
 		kernel_eight_map->addExtraKernelCode(source_additional_routines);
-
 		kernel_eight_map->compile<Instance>(dims);
 	} catch (GSPar::GSParException &ex) {
 		std::cerr << "Exception: " << ex.what() << " - " << ex.getDetails() << std::endl;
@@ -1410,20 +1375,14 @@ static void setup_gpu(){
 	/* kernel nine */
 	try {
 		unsigned long dims[3] = {(long unsigned int)amount_of_work_on_kernel_nine, 0, 0}; 
-
 		kernel_nine_map = new Map(source_kernel_nine_map);
-
-		kernel_nine_map->setStdVarNames({"gspar_thread_id"});		
-		
+		kernel_nine_map->setStdVarNames({"gspar_thread_id"});			
 		kernel_nine_map->setParameter<double*>("r", r_device, GSPAR_PARAM_PRESENT);
 		kernel_nine_map->setParameter<double*>("x", x_device, GSPAR_PARAM_PRESENT);
 		kernel_nine_map->setParameter<double*>("global_data", global_data_device, GSPAR_PARAM_PRESENT);
 		kernel_nine_map->setParameter("NA", NA);	
-
-		kernel_nine_map->setNumThreadsPerBlockForX(THREADS_PER_BLOCK);
-
+		kernel_nine_map->setNumThreadsPerBlockForX(threads_per_block_on_kernel_nine);
 		kernel_nine_map->addExtraKernelCode(source_additional_routines);
-
 		kernel_nine_map->compile<Instance>(dims);
 	} catch (GSPar::GSParException &ex) {
 		std::cerr << "Exception: " << ex.what() << " - " << ex.getDetails() << std::endl;
@@ -1433,21 +1392,15 @@ static void setup_gpu(){
 	/* kernel ten1 */
 	try {
 		unsigned long dims[3] = {(long unsigned int)amount_of_work_on_kernel_ten, 0, 0}; 
-
 		kernel_ten1_map = new Map(source_kernel_ten1_map);
-
-		kernel_ten1_map->setStdVarNames({"gspar_thread_id"});				
-		
+		kernel_ten1_map->setStdVarNames({"gspar_thread_id"});		
 		kernel_ten1_map->setParameter<double*>("x", x_device, GSPAR_PARAM_PRESENT);
 		kernel_ten1_map->setParameter<double*>("z", z_device, GSPAR_PARAM_PRESENT);
 		kernel_ten1_map->setParameter<double*>("norm_temp1", global_data_device, GSPAR_PARAM_PRESENT);
 		kernel_ten1_map->setParameter<double*>("norm_temp2", global_data_two_device, GSPAR_PARAM_PRESENT);
 		kernel_ten1_map->setParameter("NA", NA);	
-
-		kernel_ten1_map->setNumThreadsPerBlockForX(THREADS_PER_BLOCK);
-
+		kernel_ten1_map->setNumThreadsPerBlockForX(threads_per_block_on_kernel_ten);
 		kernel_ten1_map->addExtraKernelCode(source_additional_routines);
-
 		kernel_ten1_map->compile<Instance>(dims);
 	} catch (GSPar::GSParException &ex) {
 		std::cerr << "Exception: " << ex.what() << " - " << ex.getDetails() << std::endl;
@@ -1456,22 +1409,16 @@ static void setup_gpu(){
 
 	/* kernel ten2 */
 	try {
-		unsigned long dims[3] = {(long unsigned int)amount_of_work_on_kernel_ten, 0, 0}; 
-
+		unsigned long dims[3] = {(long unsigned int)amount_of_work_on_kernel_ten, 0, 0};
 		kernel_ten2_map = new Map(source_kernel_ten2_map);
-
-		kernel_ten2_map->setStdVarNames({"gspar_thread_id"});				
-		
+		kernel_ten2_map->setStdVarNames({"gspar_thread_id"});			
 		kernel_ten2_map->setParameter<double*>("x", x_device, GSPAR_PARAM_PRESENT);
 		kernel_ten2_map->setParameter<double*>("z", z_device, GSPAR_PARAM_PRESENT);
 		kernel_ten2_map->setParameter<double*>("norm_temp1", global_data_device, GSPAR_PARAM_PRESENT);
 		kernel_ten2_map->setParameter<double*>("norm_temp2", global_data_two_device, GSPAR_PARAM_PRESENT);
 		kernel_ten2_map->setParameter("NA", NA);	
-
-		kernel_ten2_map->setNumThreadsPerBlockForX(THREADS_PER_BLOCK);
-
+		kernel_ten2_map->setNumThreadsPerBlockForX(threads_per_block_on_kernel_ten);
 		kernel_ten2_map->addExtraKernelCode(source_additional_routines);
-
 		kernel_ten2_map->compile<Instance>(dims);
 	} catch (GSPar::GSParException &ex) {
 		std::cerr << "Exception: " << ex.what() << " - " << ex.getDetails() << std::endl;
@@ -1481,20 +1428,14 @@ static void setup_gpu(){
 	/* kernel eleven */
 	try {
 		unsigned long dims[3] = {(long unsigned int)amount_of_work_on_kernel_eleven, 0, 0}; 
-
 		kernel_eleven_map = new Map(source_kernel_eleven_map);
-
-		kernel_eleven_map->setStdVarNames({"gspar_thread_id"});	
-		
+		kernel_eleven_map->setStdVarNames({"gspar_thread_id"});			
 		kernel_eleven_map->setParameter<double*>("x", x_device, GSPAR_PARAM_PRESENT);
 		kernel_eleven_map->setParameter<double*>("z", z_device, GSPAR_PARAM_PRESENT);
 		kernel_eleven_map->setParameter("norm_temp2", norm_temp2);	
 		kernel_eleven_map->setParameter("NA", NA);	
-
-		kernel_eleven_map->setNumThreadsPerBlockForX(THREADS_PER_BLOCK);
-
+		kernel_eleven_map->setNumThreadsPerBlockForX(threads_per_block_on_kernel_eleven);
 		kernel_eleven_map->addExtraKernelCode(source_additional_routines);
-
 		kernel_eleven_map->compile<Instance>(dims);
 	} catch (GSPar::GSParException &ex) {
 		std::cerr << "Exception: " << ex.what() << " - " << ex.getDetails() << std::endl;
@@ -1704,7 +1645,6 @@ double kernel_four(double* global_data,
 		for(int i=0; i<blocks_per_grid_on_kernel_four; i++){global_data_reduce+=global_data[i];}
 
 		return global_data_reduce;
-
 	} catch (GSPar::GSParException &ex) {
 		std::cerr << "Exception: " << ex.what() << " - " << ex.getDetails() << std::endl;
 		exit(-1);
@@ -1889,7 +1829,7 @@ std::string source_kernel_one_map = GSPAR_STRINGIZE_SOURCE(
 );
 
 std::string source_kernel_two_map = GSPAR_STRINGIZE_SOURCE(
-	GSPAR_DEVICE_SHARED_MEMORY double share_data[THREADS_PER_BLOCK];
+	GSPAR_DEVICE_SHARED_MEMORY double share_data[CG_THREADS_PER_BLOCK_ON_KERNEL_TWO];
 
 	int thread_id = gspar_get_global_id(0);
 	int local_id = gspar_get_thread_id(0);
@@ -1910,7 +1850,7 @@ std::string source_kernel_two_map = GSPAR_STRINGIZE_SOURCE(
 );
 
 std::string source_kernel_three_map = GSPAR_STRINGIZE_SOURCE(
-	GSPAR_DEVICE_SHARED_MEMORY double share_data[THREADS_PER_BLOCK];
+	GSPAR_DEVICE_SHARED_MEMORY double share_data[CG_THREADS_PER_BLOCK_ON_KERNEL_THREE];
 	
 	int j = gspar_get_block_id(0);
 	int local_id = gspar_get_thread_id(0);
@@ -1932,7 +1872,7 @@ std::string source_kernel_three_map = GSPAR_STRINGIZE_SOURCE(
 );
 
 std::string source_kernel_four_map = GSPAR_STRINGIZE_SOURCE(
-	GSPAR_DEVICE_SHARED_MEMORY double share_data[THREADS_PER_BLOCK];
+	GSPAR_DEVICE_SHARED_MEMORY double share_data[CG_THREADS_PER_BLOCK_ON_KERNEL_FOUR];
 
 	int thread_id = gspar_get_global_id(0);
 	int local_id = gspar_get_thread_id(0);
@@ -1959,7 +1899,7 @@ std::string source_kernel_five_map = GSPAR_STRINGIZE_SOURCE(
 );
 
 std::string source_kernel_six_map = GSPAR_STRINGIZE_SOURCE(
-	GSPAR_DEVICE_SHARED_MEMORY double share_data[THREADS_PER_BLOCK];
+	GSPAR_DEVICE_SHARED_MEMORY double share_data[CG_THREADS_PER_BLOCK_ON_KERNEL_SIX];
 
 	int thread_id = gspar_get_global_id(0);
 	int local_id = gspar_get_thread_id(0);
@@ -1985,7 +1925,7 @@ std::string source_kernel_seven_map = GSPAR_STRINGIZE_SOURCE(
 );
 
 std::string source_kernel_eight_map = GSPAR_STRINGIZE_SOURCE(
-	GSPAR_DEVICE_SHARED_MEMORY double share_data[THREADS_PER_BLOCK];
+	GSPAR_DEVICE_SHARED_MEMORY double share_data[CG_THREADS_PER_BLOCK_ON_KERNEL_EIGHT];
 
 	int j = gspar_get_block_id(0);
 	int local_id = gspar_get_thread_id(0);
@@ -2007,7 +1947,7 @@ std::string source_kernel_eight_map = GSPAR_STRINGIZE_SOURCE(
 );
 
 std::string source_kernel_nine_map = GSPAR_STRINGIZE_SOURCE(
-	GSPAR_DEVICE_SHARED_MEMORY double share_data[THREADS_PER_BLOCK];
+	GSPAR_DEVICE_SHARED_MEMORY double share_data[CG_THREADS_PER_BLOCK_ON_KERNEL_NINE];
 
 	int thread_id = gspar_get_global_id(0);
 	int local_id = gspar_get_thread_id(0);
@@ -2028,66 +1968,63 @@ std::string source_kernel_nine_map = GSPAR_STRINGIZE_SOURCE(
 );
 
 std::string source_kernel_ten1_map = GSPAR_STRINGIZE_SOURCE(
-	GSPAR_DEVICE_SHARED_MEMORY double share_data_1[THREADS_PER_BLOCK];
-	//GSPAR_DEVICE_SHARED_MEMORY double share_data_2[THREADS_PER_BLOCK];
+	GSPAR_DEVICE_SHARED_MEMORY double share_data_1[CG_THREADS_PER_BLOCK_ON_KERNEL_TEN];
 
 	int thread_id = gspar_get_global_id(0);
 	int local_id = gspar_get_thread_id(0);
 
 	share_data_1[gspar_get_thread_id(0)] = 0.0;
-	//share_data_2[gspar_get_thread_id(0)] = 0.0;
 
 	if(thread_id >= NA){return;}
 
 	share_data_1[local_id] = x[thread_id]*z[thread_id];
-	//share_data_2[local_id] = z[thread_id]*z[thread_id];
 
 	gspar_synchronize_local_threads();
 	for(int i=gspar_get_block_size(0)/2; i>0; i>>=1){
 		if(local_id<i){
 			share_data_1[local_id]+=share_data_1[local_id+i];}
-			//share_data_2[local_id]+=share_data_2[local_id+i];}
 		gspar_synchronize_local_threads();
 	}
 	if(local_id==0){
 		norm_temp1[gspar_get_block_id(0)]=share_data_1[0];}
-		//norm_temp2[gspar_get_block_id(0)]=share_data_2[0];}
 );
 
 std::string source_kernel_ten2_map = GSPAR_STRINGIZE_SOURCE(
-	//GSPAR_DEVICE_SHARED_MEMORY double share_data_1[THREADS_PER_BLOCK];
-	GSPAR_DEVICE_SHARED_MEMORY double share_data_2[THREADS_PER_BLOCK];
+	GSPAR_DEVICE_SHARED_MEMORY double share_data_2[CG_THREADS_PER_BLOCK_ON_KERNEL_TEN];
 
 	int thread_id = gspar_get_global_id(0);
 	int local_id = gspar_get_thread_id(0);
-
-	//share_data_1[gspar_get_thread_id(0)] = 0.0;
+	
 	share_data_2[gspar_get_thread_id(0)] = 0.0;
 
 	if(thread_id >= NA){return;}
-
-	//share_data_1[local_id] = x[thread_id]*z[thread_id];
+	
 	share_data_2[local_id] = z[thread_id]*z[thread_id];
 
 	gspar_synchronize_local_threads();
 	for(int i=gspar_get_block_size(0)/2; i>0; i>>=1){
 		if(local_id<i){
-			//share_data_1[local_id]+=share_data_1[local_id+i];
 			share_data_2[local_id]+=share_data_2[local_id+i];}
 		gspar_synchronize_local_threads();
 	}
 	if(local_id==0){
-		//norm_temp1[gspar_get_block_id(0)]=share_data_1[0];
 		norm_temp2[gspar_get_block_id(0)]=share_data_2[0];}
 );
 
 std::string source_kernel_eleven_map = GSPAR_STRINGIZE_SOURCE(
 	int thread_id = gspar_get_global_id(0);
-	//if(thread_id >= NA){return;}
 	x[thread_id] = norm_temp2 * z[thread_id];
 );
 
-std::string source_additional_routines = 
-"\n"
-"#define THREADS_PER_BLOCK 32\n"
-"\n";
+std::string source_additional_routines =
+    "#define CG_THREADS_PER_BLOCK_ON_KERNEL_ONE " + std::to_string(CG_THREADS_PER_BLOCK_ON_KERNEL_ONE) + "\n" +
+    "#define CG_THREADS_PER_BLOCK_ON_KERNEL_TWO " + std::to_string(CG_THREADS_PER_BLOCK_ON_KERNEL_TWO) + "\n" +
+    "#define CG_THREADS_PER_BLOCK_ON_KERNEL_THREE " + std::to_string(CG_THREADS_PER_BLOCK_ON_KERNEL_THREE) + "\n" +
+    "#define CG_THREADS_PER_BLOCK_ON_KERNEL_FOUR " + std::to_string(CG_THREADS_PER_BLOCK_ON_KERNEL_FOUR) + "\n" +
+    "#define CG_THREADS_PER_BLOCK_ON_KERNEL_FIVE " + std::to_string(CG_THREADS_PER_BLOCK_ON_KERNEL_FIVE) + "\n" +
+    "#define CG_THREADS_PER_BLOCK_ON_KERNEL_SIX " + std::to_string(CG_THREADS_PER_BLOCK_ON_KERNEL_SIX) + "\n" +
+    "#define CG_THREADS_PER_BLOCK_ON_KERNEL_SEVEN " + std::to_string(CG_THREADS_PER_BLOCK_ON_KERNEL_SEVEN) + "\n" +
+    "#define CG_THREADS_PER_BLOCK_ON_KERNEL_EIGHT " + std::to_string(CG_THREADS_PER_BLOCK_ON_KERNEL_EIGHT) + "\n" +
+    "#define CG_THREADS_PER_BLOCK_ON_KERNEL_NINE " + std::to_string(CG_THREADS_PER_BLOCK_ON_KERNEL_NINE) + "\n" +
+    "#define CG_THREADS_PER_BLOCK_ON_KERNEL_TEN " + std::to_string(CG_THREADS_PER_BLOCK_ON_KERNEL_TEN) + "\n" +
+    "#define CG_THREADS_PER_BLOCK_ON_KERNEL_ELEVEN " + std::to_string(CG_THREADS_PER_BLOCK_ON_KERNEL_ELEVEN) + "\n";

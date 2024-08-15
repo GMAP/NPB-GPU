@@ -57,11 +57,14 @@
  *      Gabriell Araujo <hexenoften@gmail.com>
  *
  * ------------------------------------------------------------------------------
- */
-
-// export LD_LIBRARY_PATH=../lib/gspar/bin:$LD_LIBRARY_PATH
-// clear && make clean && make ep CLASS=S GPU_DRIVER=CUDA && bin/ep.S 
-// clear && make clean && make ep CLASS=S GPU_DRIVER=OPENCL && bin/ep.S 
+ * 
+ * How to run:
+ *      export LD_LIBRARY_PATH=../lib/gspar/bin:$LD_LIBRARY_PATH
+ *      clear && make clean && make mg CLASS=S GPU_DRIVER=CUDA && bin/mg.S 
+ *      clear && make clean && make mg CLASS=S GPU_DRIVER=OPENCL && bin/mg.S 
+ * 
+ * ------------------------------------------------------------------------------
+ */ 
 
 #include <iostream>
 #include <chrono>
@@ -97,7 +100,13 @@ using namespace std;
 #define NY (NY_DEFAULT)
 #define NZ (NZ_DEFAULT)
 #define PROFILING_TOTAL_TIME (0)
-#define THREADS_PER_BLOCK (1024)
+#define MG_THREADS_PER_BLOCK_ON_COMM3 1024
+#define MG_THREADS_PER_BLOCK_ON_INTERP 32
+#define MG_THREADS_PER_BLOCK_ON_NORM2U3 32
+#define MG_THREADS_PER_BLOCK_ON_PSINV 1024
+#define MG_THREADS_PER_BLOCK_ON_RESID 512
+#define MG_THREADS_PER_BLOCK_ON_RPRJ3 512
+#define MG_THREADS_PER_BLOCK_ON_ZERO3 128
 
 /* global variables */
 #if defined(DO_NOT_ALLOCATE_ARRAYS_WITH_DYNAMIC_MEMORY_AND_AS_SINGLE_DIMENSION)
@@ -170,8 +179,6 @@ extern std::string source_additional_routines;
 //
 string DEVICE_NAME;
 Instance* driver;
-/* anything */
-static double (*anything_double)=(double*)malloc(sizeof(double)*(NR));
 
 /* function prototypes */
 static void bubble(
@@ -1438,12 +1445,14 @@ static void setup_gpu(
 	v_device->copyIn();
 	r_device->copyIn();	
 
-	int threads_per_block = THREADS_PER_BLOCK;
+	// arbitrary gpu grid configuration, it is just an initial parameter,
+	// since MG workloads varies during the execution
+	int threads_per_block = gpu->getWarpSize();
 	int amount_of_work = NR;
 	int blocks_per_grid = amount_of_work / threads_per_block;
 	int offset = 0;
 
-	source_additional_routines_complete = source_additional_routines + std::to_string(M) + "\n";
+	source_additional_routines_complete = source_additional_routines + "\n";
 
 	/**************************/
 	/* compiling each pattern */
@@ -1451,22 +1460,16 @@ static void setup_gpu(
 	// kernel_comm3_1
 	try {
 		unsigned long dims[3] = {(long unsigned int)amount_of_work, 0, 0}; 
-
 		kernel_comm3_1 = new Map(source_kernel_comm3_1);
-
 		kernel_comm3_1->setStdVarNames({"gspar_thread_id"});
-
 		kernel_comm3_1->setParameter<double*>("base_u", u_device, GSPAR_PARAM_PRESENT);
 		kernel_comm3_1->setParameter("n1", NX);
 		kernel_comm3_1->setParameter("n2", NY);
 		kernel_comm3_1->setParameter("n3", NZ);
 		kernel_comm3_1->setParameter("amount_of_work", amount_of_work);
 		kernel_comm3_1->setParameter("offset", offset);
-
 		kernel_comm3_1->setNumThreadsPerBlockForX(threads_per_block);
-
 		kernel_comm3_1->addExtraKernelCode(source_additional_routines_complete);
-
 		kernel_comm3_1->compile<Instance>(dims);
 	} catch (GSPar::GSParException &ex) {
 		std::cerr << "Exception: " << ex.what() << " - " << ex.getDetails() << std::endl;
@@ -1476,22 +1479,16 @@ static void setup_gpu(
 	// kernel_comm3_2
 	try {
 		unsigned long dims[3] = {(long unsigned int)amount_of_work, 0, 0}; 
-
 		kernel_comm3_2 = new Map(source_kernel_comm3_2);
-
 		kernel_comm3_2->setStdVarNames({"gspar_thread_id"});	
-
 		kernel_comm3_2->setParameter<double*>("base_u", u_device, GSPAR_PARAM_PRESENT);
 		kernel_comm3_2->setParameter("n1", NX);
 		kernel_comm3_2->setParameter("n2", NY);
 		kernel_comm3_2->setParameter("n3", NZ);
 		kernel_comm3_2->setParameter("amount_of_work", amount_of_work);
 		kernel_comm3_2->setParameter("offset", offset);
-
 		kernel_comm3_2->setNumThreadsPerBlockForX(threads_per_block);
-
 		kernel_comm3_2->addExtraKernelCode(source_additional_routines_complete);
-
 		kernel_comm3_2->compile<Instance>(dims);
 	} catch (GSPar::GSParException &ex) {
 		std::cerr << "Exception: " << ex.what() << " - " << ex.getDetails() << std::endl;
@@ -1501,22 +1498,16 @@ static void setup_gpu(
 	// kernel_comm3_3
 	try {
 		unsigned long dims[3] = {(long unsigned int)amount_of_work, 0, 0}; 
-
 		kernel_comm3_3 = new Map(source_kernel_comm3_3);
-
 		kernel_comm3_3->setStdVarNames({"gspar_thread_id"});	
-
 		kernel_comm3_3->setParameter<double*>("base_u", u_device, GSPAR_PARAM_PRESENT);
 		kernel_comm3_3->setParameter("n1", NX);
 		kernel_comm3_3->setParameter("n2", NY);
 		kernel_comm3_3->setParameter("n3", NZ);
 		kernel_comm3_3->setParameter("amount_of_work", amount_of_work);
 		kernel_comm3_3->setParameter("offset", offset);
-
 		kernel_comm3_3->setNumThreadsPerBlockForX(threads_per_block);
-
 		kernel_comm3_3->addExtraKernelCode(source_additional_routines_complete);
-
 		kernel_comm3_3->compile<Instance>(dims);
 	} catch (GSPar::GSParException &ex) {
 		std::cerr << "Exception: " << ex.what() << " - " << ex.getDetails() << std::endl;
@@ -1525,12 +1516,9 @@ static void setup_gpu(
 
 	// kernel_interp
 	try {
-		unsigned long dims[3] = {(long unsigned int)amount_of_work, 0, 0}; 
-
+		unsigned long dims[3] = {(long unsigned int)amount_of_work, 0, 0};
 		kernel_interp = new Map(source_kernel_interp);
-
 		kernel_interp->setStdVarNames({"gspar_thread_id"});	
-
 		kernel_interp->setParameter<double*>("base_z", u_device, GSPAR_PARAM_PRESENT);
 		kernel_interp->setParameter<double*>("base_u", u_device, GSPAR_PARAM_PRESENT);
 		kernel_interp->setParameter("mm1", NX);
@@ -1542,11 +1530,8 @@ static void setup_gpu(
 		kernel_interp->setParameter("amount_of_work", amount_of_work);
 		kernel_interp->setParameter("offset_1", offset);
 		kernel_interp->setParameter("offset_2", offset);
-
 		kernel_interp->setNumThreadsPerBlockForX(threads_per_block);
-
 		kernel_interp->addExtraKernelCode(source_additional_routines_complete);
-
 		kernel_interp->compile<Instance>(dims);
 	} catch (GSPar::GSParException &ex) {
 		std::cerr << "Exception: " << ex.what() << " - " << ex.getDetails() << std::endl;
@@ -1556,11 +1541,8 @@ static void setup_gpu(
 	// kernel_norm2u3
 	try {
 		unsigned long dims[3] = {(long unsigned int)amount_of_work, 0, 0}; 
-
 		kernel_norm2u3 = new Map(source_kernel_norm2u3);
-
 		kernel_norm2u3->setStdVarNames({"gspar_thread_id"});	
-
 		kernel_norm2u3->setParameter<double*>("r", u_device, GSPAR_PARAM_PRESENT);
 		kernel_norm2u3->setParameter("n1", NX);
 		kernel_norm2u3->setParameter("n2", NY);
@@ -1569,11 +1551,8 @@ static void setup_gpu(
 		kernel_norm2u3->setParameter<double*>("res_max", u_device, GSPAR_PARAM_PRESENT);
 		kernel_norm2u3->setParameter("number_of_blocks", blocks_per_grid);
 		kernel_norm2u3->setParameter("amount_of_work", amount_of_work);
-
 		kernel_norm2u3->setNumThreadsPerBlockForX(threads_per_block);
-
 		kernel_norm2u3->addExtraKernelCode(source_additional_routines_complete);
-
 		kernel_norm2u3->compile<Instance>(dims);
 	} catch (GSPar::GSParException &ex) {
 		std::cerr << "Exception: " << ex.what() << " - " << ex.getDetails() << std::endl;
@@ -1583,11 +1562,8 @@ static void setup_gpu(
 	// kernel_psinv
 	try {
 		unsigned long dims[3] = {(long unsigned int)amount_of_work, 0, 0}; 
-
 		kernel_psinv = new Map(source_kernel_psinv);
-
 		kernel_psinv->setStdVarNames({"gspar_thread_id"});	
-
 		kernel_psinv->setParameter<double*>("base_r", u_device, GSPAR_PARAM_PRESENT);
 		kernel_psinv->setParameter<double*>("base_u", u_device, GSPAR_PARAM_PRESENT);
 		kernel_psinv->setParameter<double*>("c", u_device, GSPAR_PARAM_PRESENT);
@@ -1597,11 +1573,8 @@ static void setup_gpu(
 		kernel_psinv->setParameter("amount_of_work", amount_of_work);
 		kernel_psinv->setParameter("offset_1", offset);
 		kernel_psinv->setParameter("offset_2", offset);
-
 		kernel_psinv->setNumThreadsPerBlockForX(threads_per_block);
-
 		kernel_psinv->addExtraKernelCode(source_additional_routines_complete);
-
 		kernel_psinv->compile<Instance>(dims);
 	} catch (GSPar::GSParException &ex) {
 		std::cerr << "Exception: " << ex.what() << " - " << ex.getDetails() << std::endl;
@@ -1611,11 +1584,8 @@ static void setup_gpu(
 	// kernel_resid
 	try {
 		unsigned long dims[3] = {(long unsigned int)amount_of_work, 0, 0}; 
-
 		kernel_resid = new Map(source_kernel_resid);
-
-		kernel_resid->setStdVarNames({"gspar_thread_id"});	
-
+		kernel_resid->setStdVarNames({"gspar_thread_id"});
 		kernel_resid->setParameter<double*>("base_u", u_device, GSPAR_PARAM_PRESENT);
 		kernel_resid->setParameter<double*>("base_v", u_device, GSPAR_PARAM_PRESENT);
 		kernel_resid->setParameter<double*>("base_r", u_device, GSPAR_PARAM_PRESENT);
@@ -1627,11 +1597,8 @@ static void setup_gpu(
 		kernel_resid->setParameter("offset_1", offset);
 		kernel_resid->setParameter("offset_2", offset);
 		kernel_resid->setParameter("offset_3", offset);
-
 		kernel_resid->setNumThreadsPerBlockForX(threads_per_block);
-
 		kernel_resid->addExtraKernelCode(source_additional_routines_complete);
-
 		kernel_resid->compile<Instance>(dims);
 	} catch (GSPar::GSParException &ex) {
 		std::cerr << "Exception: " << ex.what() << " - " << ex.getDetails() << std::endl;
@@ -1641,11 +1608,8 @@ static void setup_gpu(
 	// kernel_rprj3
 	try {
 		unsigned long dims[3] = {(long unsigned int)amount_of_work, 0, 0}; 
-
 		kernel_rprj3 = new Map(source_kernel_rprj3);
-
 		kernel_rprj3->setStdVarNames({"gspar_thread_id"});	
-
 		kernel_rprj3->setParameter<double*>("base_r", u_device, GSPAR_PARAM_PRESENT);
 		kernel_rprj3->setParameter<double*>("base_s", u_device, GSPAR_PARAM_PRESENT);		
 		kernel_rprj3->setParameter("m1k", NX);
@@ -1660,11 +1624,8 @@ static void setup_gpu(
 		kernel_rprj3->setParameter("amount_of_work", amount_of_work);
 		kernel_rprj3->setParameter("offset_1", offset);
 		kernel_rprj3->setParameter("offset_2", offset);
-
 		kernel_rprj3->setNumThreadsPerBlockForX(threads_per_block);
-
 		kernel_rprj3->addExtraKernelCode(source_additional_routines_complete);
-
 		kernel_rprj3->compile<Instance>(dims);
 	} catch (GSPar::GSParException &ex) {
 		std::cerr << "Exception: " << ex.what() << " - " << ex.getDetails() << std::endl;
@@ -1674,22 +1635,16 @@ static void setup_gpu(
 	// kernel_zero3
 	try {
 		unsigned long dims[3] = {(long unsigned int)amount_of_work, 0, 0}; 
-
 		kernel_zero3 = new Map(source_kernel_zero3);
-
-		kernel_zero3->setStdVarNames({"gspar_thread_id"});	
-
+		kernel_zero3->setStdVarNames({"gspar_thread_id"});
 		kernel_zero3->setParameter<double*>("base_z", u_device, GSPAR_PARAM_PRESENT);
 		kernel_zero3->setParameter("n1", NX);
 		kernel_zero3->setParameter("n2", NY);
 		kernel_zero3->setParameter("n3", NZ);
 		kernel_zero3->setParameter("amount_of_work", amount_of_work);
 		kernel_zero3->setParameter("offset", offset);
-
 		kernel_zero3->setNumThreadsPerBlockForX(threads_per_block);
-
 		kernel_zero3->addExtraKernelCode(source_additional_routines_complete);
-
 		kernel_zero3->compile<Instance>(dims);
 	} catch (GSPar::GSParException &ex) {
 		std::cerr << "Exception: " << ex.what() << " - " << ex.getDetails() << std::endl;
@@ -1704,8 +1659,8 @@ static void comm3_gpu(
 		int n3, 
 		int kk,
 		int offset){
-	threads_per_block = THREADS_PER_BLOCK;
-	amount_of_work = (n3-2) * THREADS_PER_BLOCK;
+	threads_per_block = MG_THREADS_PER_BLOCK_ON_COMM3;
+	amount_of_work = (n3-2) * MG_THREADS_PER_BLOCK_ON_COMM3;
 	blocks_per_grid = (ceil((double)(amount_of_work)/(double)(threads_per_block)));
 
 	try {
@@ -1723,8 +1678,8 @@ static void comm3_gpu(
 		exit(-1);
 	}
 
-	threads_per_block = THREADS_PER_BLOCK;
-	amount_of_work = (n3-2) * THREADS_PER_BLOCK;	
+	threads_per_block = MG_THREADS_PER_BLOCK_ON_COMM3;
+	amount_of_work = (n3-2) * MG_THREADS_PER_BLOCK_ON_COMM3;	
 	blocks_per_grid = (ceil((double)(amount_of_work)/(double)(threads_per_block)));
 
 	try {
@@ -1742,8 +1697,8 @@ static void comm3_gpu(
 		exit(-1);
 	}
 
-	threads_per_block = THREADS_PER_BLOCK;
-	amount_of_work = n2 * THREADS_PER_BLOCK;
+	threads_per_block = MG_THREADS_PER_BLOCK_ON_COMM3;
+	amount_of_work = n2 * MG_THREADS_PER_BLOCK_ON_COMM3;
 	blocks_per_grid = (ceil((double)(amount_of_work)/(double)(threads_per_block)));
 
 	try {
@@ -1823,7 +1778,7 @@ static void norm2u3_gpu(
 	s=0.0;
 	max_rnmu=0.0;
 
-	threads_per_block = THREADS_PER_BLOCK;
+	threads_per_block = MG_THREADS_PER_BLOCK_ON_NORM2U3;
 	amount_of_work = (n2-2) * (n3-2) * threads_per_block;
 	blocks_per_grid = (ceil((double)(amount_of_work)/(double)(threads_per_block)));
 
@@ -1885,7 +1840,7 @@ static void psinv_gpu(
 		int k,
 		int offset_1,
 		int offset_2){
-	threads_per_block = n1 > THREADS_PER_BLOCK ? THREADS_PER_BLOCK : n1;
+	threads_per_block = n1 > MG_THREADS_PER_BLOCK_ON_PSINV ? MG_THREADS_PER_BLOCK_ON_PSINV : n1;
 	amount_of_work = (n3-2) * (n2-2) * threads_per_block;
 	blocks_per_grid = (ceil((double)(amount_of_work)/(double)(threads_per_block)));
 
@@ -1927,7 +1882,7 @@ static void resid_gpu(
 		int offset_1,
 		int offset_2,
 		int offset_3){
-	threads_per_block = n1 > THREADS_PER_BLOCK ? THREADS_PER_BLOCK : n1;
+	threads_per_block = n1 > MG_THREADS_PER_BLOCK_ON_RESID ? MG_THREADS_PER_BLOCK_ON_RESID : n1;
 	amount_of_work = (n3-2) * (n2-2) * threads_per_block;
 	blocks_per_grid = (ceil((double)(amount_of_work)/(double)(threads_per_block)));
 
@@ -2025,7 +1980,7 @@ static void zero3_gpu(MemoryObject* base_z_device,
 		int n2, 
 		int n3,
 		int offset){
-	threads_per_block = THREADS_PER_BLOCK;
+	threads_per_block = MG_THREADS_PER_BLOCK_ON_ZERO3;
 	amount_of_work = n1*n2*n3;	
 	blocks_per_grid = (ceil((double)(amount_of_work)/(double)(threads_per_block)));
 
@@ -2104,15 +2059,6 @@ static void mg3P_gpu(
 }
 
 std::string source_kernel_comm3_1 = GSPAR_STRINGIZE_SOURCE(
-	//GSPAR_DEVICE_GLOBAL_MEMORY double* base_u, 
-	//int n1, 
-	//int n2, 
-	//int n3, 
-	//int amount_of_work,
-	//int offset
-
-	// BEGIN
-
 	int check=gspar_get_global_id(0);
 	if(check>=amount_of_work){return;}
 
@@ -2126,20 +2072,9 @@ std::string source_kernel_comm3_1 = GSPAR_STRINGIZE_SOURCE(
 		u[i3*n2*n1+i2*n1+n1-1]=u[i3*n2*n1+i2*n1+1];
 		i2+=gspar_get_block_size(0);
 	}
-
-	// END
 );
 
 std::string source_kernel_comm3_2 = GSPAR_STRINGIZE_SOURCE(
-	//GSPAR_DEVICE_GLOBAL_MEMORY double* base_u,
-	//int n1,
-	//int n2,
-	//int n3,
-	//int amount_of_work,
-	//int offset
-
-	// BEGIN
-
 	int check=gspar_get_global_id(0);
 	if(check>=amount_of_work){return;}
 
@@ -2153,20 +2088,9 @@ std::string source_kernel_comm3_2 = GSPAR_STRINGIZE_SOURCE(
 		u[i3*n2*n1+(n2-1)*n1+i1]=u[i3*n2*n1+1*n1+i1];
 		i1+=gspar_get_block_size(0);
 	}
-
-	// END	
 );
 
 std::string source_kernel_comm3_3 = GSPAR_STRINGIZE_SOURCE(
-	//GSPAR_DEVICE_GLOBAL_MEMORY double* base_u,
-	//int n1, 
-	//int n2, 
-	//int n3, 
-	//int amount_of_work,
-	//int offset
-
-	// BEGIN
-
 	int check=gspar_get_global_id(0);
 	if(check>=amount_of_work){return;}
 
@@ -2180,36 +2104,15 @@ std::string source_kernel_comm3_3 = GSPAR_STRINGIZE_SOURCE(
 		u[(n3-1)*n2*n1+i2*n1+i1]=u[1*n2*n1+i2*n1+i1];
 		i1+=gspar_get_block_size(0);
 	}
-
-	// END	
 );
 
 std::string source_kernel_interp = GSPAR_STRINGIZE_SOURCE(
-	//GSPAR_DEVICE_GLOBAL_MEMORY double* base_z,
-	//GSPAR_DEVICE_GLOBAL_MEMORY double* base_u,
-	//int mm1, 
-	//int mm2, 
-	//int mm3,
-	//int n1, 
-	//int n2, 
-	//int n3,
-	//int amount_of_work,
-	//int offset_1,
-	//int offset_2
-
-	// BEGIN
-
 	int check=gspar_get_global_id(0);
 	if(check>=amount_of_work){return;}	
 
 	int i3,i2,i1;
 
-	// #TODO it should use dynamic shared memory with M size
 	GSPAR_DEVICE_SHARED_MEMORY double z1[M],z2[M],z3[M];
-	//GSPAR_DEVICE_SHARED_MEMORY double z1[1024],z2[1024],z3[1024];
-	//double* z1 = (double*)(extern_share_data);
-	//double* z2 = (double*)(&z1[M]);
-	//double* z3 = (double*)(&z2[M]);
 
 	GSPAR_DEVICE_GLOBAL_MEMORY double (*z) = base_z + offset_1;
 	GSPAR_DEVICE_GLOBAL_MEMORY double (*u) = base_u + offset_2;
@@ -2235,30 +2138,14 @@ std::string source_kernel_interp = GSPAR_STRINGIZE_SOURCE(
 		u[(2*i3+1)*n2*n1+(2*i2+1)*n1+2*i1]+=0.25*z3[i1];
 		u[(2*i3+1)*n2*n1+(2*i2+1)*n1+2*i1+1]+=0.125*(z3[i1]+z3[i1+1]);
 	}
-
-	// END	
 );
 
 std::string source_kernel_norm2u3 = GSPAR_STRINGIZE_SOURCE(
-	//GSPAR_DEVICE_GLOBAL_MEMORY double* r,
-	//const int n1, 
-	//const int n2, 
-	//const int n3,
-	//GSPAR_DEVICE_GLOBAL_MEMORY double* res_sum,
-	//GSPAR_DEVICE_GLOBAL_MEMORY double* res_max,
-	//int number_of_blocks,
-	//int amount_of_work
-
-	// BEGIN 
-
 	int check=gspar_get_global_id(0);
 	if(check>=amount_of_work){return;}
 
-	// #TODO it should use dynamic shared memory with THREADS_PER_BLOCK size
-	GSPAR_DEVICE_SHARED_MEMORY double scratch_sum[THREADS_PER_BLOCK];
-	GSPAR_DEVICE_SHARED_MEMORY double scratch_max[THREADS_PER_BLOCK];
-	//double* scratch_sum = (double*)(extern_share_data);
-	//double* scratch_max = (double*)(&scratch_sum[gspar_get_block_size(0)]);
+	GSPAR_DEVICE_SHARED_MEMORY double scratch_sum[MG_THREADS_PER_BLOCK_ON_NORM2U3];
+	GSPAR_DEVICE_SHARED_MEMORY double scratch_max[MG_THREADS_PER_BLOCK_ON_NORM2U3];
 
 	int i3=gspar_get_block_id(0)/(n2-2)+1;
 	int i2=gspar_get_block_id(0)%(n2-2)+1;
@@ -2293,34 +2180,16 @@ std::string source_kernel_norm2u3 = GSPAR_STRINGIZE_SOURCE(
 		res_sum[idx]=scratch_sum[0];
 		res_max[idx]=scratch_max[0];
 	}
-
-	// END	
 );
 
 std::string source_kernel_psinv = GSPAR_STRINGIZE_SOURCE(
-	//GSPAR_DEVICE_GLOBAL_MEMORY double* base_r,
-	//GSPAR_DEVICE_GLOBAL_MEMORY double* base_u,
-	//GSPAR_DEVICE_GLOBAL_MEMORY double* c,
-	//int n1,
-	//int n2,
-	//int n3,
-	//int amount_of_work,
-	//int offset_1,
-	//int offset_2
-
-	// BEGIN
-
 	int check=gspar_get_global_id(0);
 	if(check>=amount_of_work){return;}
 
 	GSPAR_DEVICE_GLOBAL_MEMORY double* r = base_r + offset_1;
 	GSPAR_DEVICE_GLOBAL_MEMORY double* u = base_u + offset_2;
 
-	// #TODO it should use dynamic shared memory with M size
 	GSPAR_DEVICE_SHARED_MEMORY double r1[M],r2[M];
-	//GSPAR_DEVICE_SHARED_MEMORY double r1[1024],r2[1024];
-	//double* r1 = (double*)(extern_share_data);
-	//double* r2 = (double*)(&r1[M]);
 
 	int i3=gspar_get_block_id(0)/(n2-2)+1;
 	int i2=gspar_get_block_id(0)%(n2-2)+1;
@@ -2345,25 +2214,9 @@ std::string source_kernel_psinv = GSPAR_STRINGIZE_SOURCE(
 			+r1[i1])
 			+c[2]*(r2[i1]+r1[i1-1]+r1[i1+1]);
 	}
-
-	// END	
 );
 
 std::string source_kernel_resid = GSPAR_STRINGIZE_SOURCE(
-	//GSPAR_DEVICE_GLOBAL_MEMORY double* base_u,
-	//GSPAR_DEVICE_GLOBAL_MEMORY double* base_v,
-	//GSPAR_DEVICE_GLOBAL_MEMORY double* base_r,
-	//GSPAR_DEVICE_GLOBAL_MEMORY double* a,
-	//int n1,
-	//int n2,
-	//int n3,
-	//int amount_of_work,
-	//int offset_1,
-	//int offset_2,
-	//int offset_3
-
-	// BEGIN
-
 	int check=gspar_get_global_id(0);
 	if(check>=amount_of_work){return;}
 
@@ -2371,11 +2224,7 @@ std::string source_kernel_resid = GSPAR_STRINGIZE_SOURCE(
 	GSPAR_DEVICE_GLOBAL_MEMORY double* v = base_v + offset_2;
 	GSPAR_DEVICE_GLOBAL_MEMORY double* r = base_r + offset_3;
 
-	// #TODO it should use dynamic shared memory with M size
 	GSPAR_DEVICE_SHARED_MEMORY double u1[M], u2[M];
-	//GSPAR_DEVICE_SHARED_MEMORY double u1[1024], u2[1024];
-	//double* u1 = (double*)(extern_share_data);
-	//double* u2 = (double*)(&u1[M]);
 
 	int i3=gspar_get_block_id(0)/(n2-2)+1;
 	int i2=gspar_get_block_id(0)%(n2-2)+1;
@@ -2398,28 +2247,9 @@ std::string source_kernel_resid = GSPAR_STRINGIZE_SOURCE(
 			-a[2]*(u2[i1]+u1[i1-1]+u1[i1+1])
 			-a[3]*(u2[i1-1]+u2[i1+1]);
 	}
-
-	// END
 );
 
 std::string source_kernel_rprj3 = GSPAR_STRINGIZE_SOURCE(
-	//GSPAR_DEVICE_GLOBAL_MEMORY double* base_r,
-	//GSPAR_DEVICE_GLOBAL_MEMORY double* base_s,
-	//int m1k,
-	//int m2k,
-	//int m3k,
-	//int m1j,
-	//int m2j,
-	//int m3j,
-	//int d1, 
-	//int d2, 
-	//int d3,
-	//int amount_of_work,
-	//int offset_1,
-	//int offset_2
-
-	// BEGIN
-
 	int check=gspar_get_global_id(0);
 	if(check>=amount_of_work){return;}
 
@@ -2429,11 +2259,8 @@ std::string source_kernel_rprj3 = GSPAR_STRINGIZE_SOURCE(
 	int j3,j2,j1,i3,i2,i1;
 	double x2,y2;
 
-	// #TODO it should use dynamic shared memory with M size
-	GSPAR_DEVICE_SHARED_MEMORY double x1[M],y1[M];
-	//GSPAR_DEVICE_SHARED_MEMORY double x1[1024],y1[1024];
-	//double* x1 = (double*)(extern_share_data);
-	//double* y1 = (double*)(&x1[M]);	
+	GSPAR_DEVICE_SHARED_MEMORY double x1[M];
+	GSPAR_DEVICE_SHARED_MEMORY double yy1[M];
 
 	j3=gspar_get_block_id(0)/(m2j-2)+1;
 	j2=gspar_get_block_id(0)%(m2j-2)+1;
@@ -2446,7 +2273,7 @@ std::string source_kernel_rprj3 = GSPAR_STRINGIZE_SOURCE(
 		+r[(i3+1)*m2k*m1k+(i2+2)*m1k+i1]
 		+r[i3*m2k*m1k+(i2+1)*m1k+i1]
 		+r[(i3+2)*m2k*m1k+(i2+1)*m1k+i1];
-	y1[i1]=r[i3*m2k*m1k+i2*m1k+i1]
+	yy1[i1]=r[i3*m2k*m1k+i2*m1k+i1]
 		+r[(i3+2)*m2k*m1k+i2*m1k+i1]
 		+r[i3*m2k*m1k+(i2+2)*m1k+i1]
 		+r[(i3+2)*m2k*m1k+(i2+2)*m1k+i1];		
@@ -2466,36 +2293,25 @@ std::string source_kernel_rprj3 = GSPAR_STRINGIZE_SOURCE(
 			+0.25*(r[(i3+1)*m2k*m1k+(i2+1)*m1k+i1]
 			+r[(i3+1)*m2k*m1k+(i2+1)*m1k+i1+2]+x2)
 			+0.125*(x1[i1]+x1[i1+2]+y2)
-			+0.0625*(y1[i1]+y1[i1+2]);
+			+0.0625*(yy1[i1]+yy1[i1+2]);
 	}
-
-	// END	
 );
 
 std::string source_kernel_zero3 = GSPAR_STRINGIZE_SOURCE(
-	//GSPAR_DEVICE_GLOBAL_MEMORY double* base_z, 
-	//int n1, 
-	//int n2, 
-	//int n3, 
-	//int amount_of_work,
-	//int offset
-
-	// BEGIN
-
 	int thread_id=gspar_get_global_id(0);
 	if(thread_id>=(n1*n2*n3)){return;}
 	GSPAR_DEVICE_GLOBAL_MEMORY double* z = base_z + offset;
 	z[thread_id]=0.0;
-
-	// END	
 );
 
 std::string source_additional_routines_complete = "\n";
 
-std::string source_additional_routines = 
-"\n"
-"#define WARP_SIZE 32\n"
-"#define MAX_THREADS_PER_BLOCK 1024\n"
-"#define THREADS_PER_BLOCK 1024\n"
-"\n"
-"#define M ";
+std::string source_additional_routines =
+    "#define M " + std::to_string(M) + "\n" +    
+	"#define MG_THREADS_PER_BLOCK_ON_COMM3 " + std::to_string(MG_THREADS_PER_BLOCK_ON_COMM3) + "\n" +
+    "#define MG_THREADS_PER_BLOCK_ON_INTERP " + std::to_string(MG_THREADS_PER_BLOCK_ON_INTERP) + "\n" +
+    "#define MG_THREADS_PER_BLOCK_ON_NORM2U3 " + std::to_string(MG_THREADS_PER_BLOCK_ON_NORM2U3) + "\n" +
+    "#define MG_THREADS_PER_BLOCK_ON_PSINV " + std::to_string(MG_THREADS_PER_BLOCK_ON_PSINV) + "\n" +
+    "#define MG_THREADS_PER_BLOCK_ON_RESID " + std::to_string(MG_THREADS_PER_BLOCK_ON_RESID) + "\n" +
+    "#define MG_THREADS_PER_BLOCK_ON_RPRJ3 " + std::to_string(MG_THREADS_PER_BLOCK_ON_RPRJ3) + "\n" +
+    "#define MG_THREADS_PER_BLOCK_ON_ZERO3 " + std::to_string(MG_THREADS_PER_BLOCK_ON_ZERO3) + "\n";
