@@ -10,6 +10,8 @@ This is a repository aimed at providing GPU parallel codes with different parall
 
 :sound:*News:* A new GPU parallel implementation is now available using the [GSParLib API](https://github.com/GMAP/GSParLib). :date:15/Aug/2024
 
+:sound:*News:* A new GPU parallel implementation is now available using HIP. :date:30/Jan/2025
+
 
 ## How to cite our work :+1:
 
