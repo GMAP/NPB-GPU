@@ -1,140 +1,239 @@
+
 # NAS Parallel Benchmarks for GPU
+
+  
 
 This is a repository aimed at providing GPU parallel codes with different parallel APIs for the NAS Parallel Benchmarks ([NPB](https://www.nas.nasa.gov/publications/npb.html)) from a C/C++ version ([NPB-CPP](https://github.com/GMAP/NPB-CPP)). You can also contribute with this project, writing issues and pull requests. :smile:
 
+  
+
+  
+
 :sound:*News:* CUDA versions for pseudo-applications added and IS improved. :date:11/Feb/2021
+
+
 
 :sound:*News:* Parametrization support for configuring number of threads per block and CUDA parallelism optimizations. :date:25/Jul/2021
 
+  
+
 :sound:*News:* Paper published in the journal Software: Practice and Experience (SPE). :date:29/Nov/2021
+
+
 
 :sound:*News:* A new GPU parallel implementation is now available using the [GSParLib API](https://github.com/GMAP/GSParLib). :date:15/Aug/2024
 
+
+
 :sound:*News:* A new GPU parallel implementation is now available using HIP. :date:30/Jan/2025
 
+  
+  
 
 ## How to cite our work :+1:
 
+  
+
 [DOI](https://doi.org/10.1002/spe.3056) - Araujo, G.; Griebler, D.; Rockenbach, D. A.; Danelutto, M.; Fernandes, L. G.; **NAS Parallel Benchmarks with CUDA and beyond**, Software: Practice and Experience (SPE), 2021.
 
-[DOI](https://doi.org/10.1109/PDP50117.2020.00009) - Araujo, G.; Griebler, D.; Danelutto, M.; Fernandes, L. G.; **Efficient NAS Benchmark Kernels with CUDA**. *28th Euromicro International Conference on Parallel, Distributed and Network-based Processing (PDP)*, Västerås, 2020. 
   
-## The NPB with CUDA
 
-The parallel CUDA version was implemented from the serial version of [NPB-CPP](https://github.com/GMAP/NPB-CPP).
+[DOI](https://doi.org/10.1109/PDP50117.2020.00009) - Araujo, G.; Griebler, D.; Danelutto, M.; Fernandes, L. G.; **Efficient NAS Benchmark Kernels with CUDA**. *28th Euromicro International Conference on Parallel, Distributed and Network-based Processing (PDP)*, Västerås, 2020.
+
+## The NPB with HIP
+
+  
+
+The parallel HIP version was implemented from the serial version of [NPB-CPP](https://github.com/GMAP/NPB-CPP).
+
+  
 
 ==================================================================
 
-NAS Parallel Benchmarks code contributors with CUDA are:
+  
+
+NAS Parallel Benchmarks code contributors with HIP are:
+
+  
 
 Dalvan Griebler: dalvan.griebler@pucrs.br
 
+  
+
 Gabriell Araujo: gabriell.araujo@edu.pucrs.br
+
+  
 
 ==================================================================
 
+  
+
 Each directory is independent and contains its own implemented version:
+
+  
 
 *Five kernels*
 
-+ **IS** - Integer Sort
-+ **EP** - Embarrassingly Parallel
-+ **CG** - Conjugate Gradient
-+ **MG** - Multi-Grid
-+ **FT** - discrete 3D fast Fourier Transform
+  
+
++  **IS** - Integer Sort
+
++  **EP** - Embarrassingly Parallel
+
++  **CG** - Conjugate Gradient
+
++  **MG** - Multi-Grid
+
++  **FT** - discrete 3D fast Fourier Transform
+
+  
 
 *Three pseudo-application*
 
-+ **SP** - Scalar Penta-diagonal solver
-+ **BT** - Block Tri-diagonal solver
-+ **LU** - Lower-Upper Gauss-Seidel solver
+  
+
++  **SP** - Scalar Penta-diagonal solver
+
++  **BT** - Block Tri-diagonal solver
+
++  **LU** - Lower-Upper Gauss-Seidel solver
+
   
 
 ## Software Requiriments
 
-*Warning: our tests were made with GCC and CUDA*
+  
+
+*Warning: our tests were made with HIP and ROCm*
+
+  
 
 ## How to Compile
 
-1. Update the make.def file with the compute capability of the GPU you want to use to compile and run the NPB-GPU:
+  
+  
 
-    1. Check the number of available NVIDIA GPUs by executing the following command:
-        ```
-        nvidia-smi --query-gpu=index --format=csv,noheader,nounits | wc -l
-        ```
+Go inside the directory `HIP` directory and execute:
 
-    2. Find the compute capability of the GPU you want to use by executing the following command (replace GPU_ID with the actual GPU ID):
-        ```
-        nvidia-smi -i GPU_ID --query-gpu=compute_cap --format=csv,noheader,nounits
-        ```
+  
 
-    3. Update the `make.def` file by replacing `61` in the following line with the value of GPU compute compute capability you obtained:
-        ```
-        COMPUTE_CAPABILITY = -gencode arch=compute_61,code=sm_61
-        ```
+```
 
-2. Go inside the `CUDA` directory and execute:
+make _BENCHMARK CLASS=_VERSION
 
-    ```
-    make _BENCHMARK CLASS=_VERSION
-    ```
+```
 
-    `_BENCHMARKs` are:
+  
 
+`_BENCHMARKs` are:
 
-        CG, EP, FT, IS, MG, BT, LU, and SP 
+  
+  
 
+CG, EP, FT, IS, MG, BT, LU, and SP
 
-    `_VERSIONs` are:
+  
+  
 
-        + Class S: small for quick test purposes
+`_VERSIONs` are:
 
-        + Class W: workstation size (a 90's workstation; now likely too small)
+  
 
-        + Classes A, B, C: standard test problems; ~4X size increase going from one class to the next
++ Class S: small for quick test purposes
 
-        + Classes D, E, F: large test problems; ~16X size increase from each of the previous Classes
+  
 
++ Class W: workstation size (a 90's workstation; now likely too small)
 
-    Command example:
+  
 
-    ```
-    make ep CLASS=B
-    ```
++ Classes A, B, C: standard test problems; ~4X size increase going from one class to the next
+
+  
+
++ Classes D, E, F: large test problems; ~16X size increase from each of the previous Classes
+
+  
+  
+
+Command example:
+
+  
+
+```
+
+make ep CLASS=B
+
+```
+
   
 
 ## Activating the additional timers
 
-NPB-GPU has additional timers for profiling purpose. To activate these timers, create a dummy file 'timer.flag' in the main directory of the NPB version (e.g. CUDA/timer.flag).
+  
+
+NPB-GPU has additional timers for profiling purpose. To activate these timers, create a dummy file 'timer.flag' in the main directory of the NPB version (e.g. HIP/timer.flag).
+
+  
 
 ## Configuring the number of threads per block
 
+  
+
 NPB-GPU allows configuring the number of threads per block of each GPU kernel in the benchmarks. The user can specify the number of threads per block by editing the file gpu.config in the directory <API>/config/. If no file is specified, all GPU kernels are executed using the warp size of the GPU as the number of threads per block.
 
-Syntax of the gpu.config file: 
+  
+
+Syntax of the gpu.config file:
+
+  
 
 ```
+
 <benchmark-name>_THREADS_PER_BLOCK_<gpu-kernel-name> = <interger-value>
+
 ```
+
+  
 
 Configuring CG benchmark as example:
 
+  
+
 ```
+
 CG_THREADS_PER_BLOCK_ON_KERNEL_ONE = 32
+
 CG_THREADS_PER_BLOCK_ON_KERNEL_TWO = 128
+
 CG_THREADS_PER_BLOCK_ON_KERNEL_THREE = 64
+
 CG_THREADS_PER_BLOCK_ON_KERNEL_FOUR = 256
+
 CG_THREADS_PER_BLOCK_ON_KERNEL_FIVE = 32
+
 CG_THREADS_PER_BLOCK_ON_KERNEL_SIX = 64
+
 CG_THREADS_PER_BLOCK_ON_KERNEL_SEVEN = 128
+
 CG_THREADS_PER_BLOCK_ON_KERNEL_EIGHT = 64
+
 CG_THREADS_PER_BLOCK_ON_KERNEL_NINE = 512
+
 CG_THREADS_PER_BLOCK_ON_KERNEL_TEN = 512
+
 CG_THREADS_PER_BLOCK_ON_KERNEL_ELEVEN = 1024
+
 ```
+
+  
 
 The NPB-GPU also allows changing the GPU device by providing the following syntax in the gpu.config file:
 
+  
+
 ```
+
 GPU_DEVICE = <interger-value>
+
 ```
