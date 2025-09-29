@@ -92,12 +92,16 @@ Each directory is independent and contains its own implemented version:
     Command example to compile:
 
     ```
+    export CHIP_BE=level0 # in case you are using HIP and Intel GPUs
+    
     make ep CLASS=B
     ```
 
     Command example to run:
 
     ```
+    export CHIP_BE=level0 # in case you are using HIP and Intel GPUs
+
     bin/ep.B
     ```
   
