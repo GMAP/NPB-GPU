@@ -600,8 +600,8 @@ void write_sp_info(FILE *fp, char class_npb){
 		printf("setparams: Internal error: invalid class_npb %c\n", class_npb);
 		exit(1);
 	}
-	fprintf(fp, "#define\tPROBLEM_SIZE\t%d\n", problem_size);
-	fprintf(fp, "#define\tNITER_DEFAULT\t%d\n", niter);
+	fprintf(fp, "#define\tPROBLEM_SIZE\t%dLL\n", problem_size);
+	fprintf(fp, "#define\tNITER_DEFAULT\t%dLL\n", niter);
 	fprintf(fp, "#define\tDT_DEFAULT\t%s\n", dt);
 }
 
@@ -622,8 +622,8 @@ void write_bt_info(FILE *fp, char class_npb){
 		printf("setparams: Internal error: invalid class_npb %c\n", class_npb);
 		exit(1);
 	}
-	fprintf(fp, "#define\tPROBLEM_SIZE\t%d\n", problem_size);
-	fprintf(fp, "#define\tNITER_DEFAULT\t%d\n", niter);
+	fprintf(fp, "#define\tPROBLEM_SIZE\t%dLL\n", problem_size);
+	fprintf(fp, "#define\tNITER_DEFAULT\t%dLL\n", niter);
 	fprintf(fp, "#define\tDT_DEFAULT\t%s\n", dt);
 }
 
@@ -640,7 +640,7 @@ void write_dc_info(FILE *fp, char class_npb){
 		printf("setparams: Internal error: invalid class_npb %c\n", class_npb);
 		exit(1);
 	}
-	fprintf(fp, "long long int input_tuples=%ld, attrnum=%ld;\n", input_tuples, attrnum);
+	fprintf(fp, "long long int input_tuples=%ldLL, attrnum=%ld;\n", input_tuples, attrnum);
 }
 
 /* 
@@ -665,12 +665,12 @@ void write_lu_info(FILE *fp, char class_npb){
 	isiz1 = problem_size;
 	isiz2 = problem_size;
 	fprintf(fp, "\n/* full problem size */\n");
-	fprintf(fp, "#define\tISIZ1\t%d\n",isiz1);
-	fprintf(fp, "#define\tISIZ2\t%d\n", isiz2);
-	fprintf(fp, "#define\tISIZ3\t%d\n", problem_size);
+	fprintf(fp, "#define\tISIZ1\t%dLL\n",isiz1);
+	fprintf(fp, "#define\tISIZ2\t%dLL\n", isiz2);
+	fprintf(fp, "#define\tISIZ3\t%dLL\n", problem_size);
 	fprintf(fp, "/* number of iterations and how often to print the norm */\n");
-	fprintf(fp, "#define\tITMAX_DEFAULT\t%d\n", itmax);
-	fprintf(fp, "#define\tINORM_DEFAULT\t%d\n", inorm);
+	fprintf(fp, "#define\tITMAX_DEFAULT\t%dLL\n", itmax);
+	fprintf(fp, "#define\tINORM_DEFAULT\t%dLL\n", inorm);
 	fprintf(fp, "#define\tDT_DEFAULT\t%s\n", dt_default);
 }
 
@@ -700,17 +700,17 @@ void write_mg_info(FILE *fp, char class_npb)
 	ndim1 = lm;
 	ndim3 = log2_size;
 	ndim2 = log2_size;
-	fprintf(fp, "#define NX_DEFAULT    %d\n", problem_size);
-	fprintf(fp, "#define NY_DEFAULT    %d\n", problem_size);
-	fprintf(fp, "#define NZ_DEFAULT    %d\n", problem_size);
-	fprintf(fp, "#define NIT_DEFAULT   %d\n", nit);
-	fprintf(fp, "#define LM            %d\n", lm);
-	fprintf(fp, "#define LT_DEFAULT    %d\n", lt_default);
-	fprintf(fp, "#define DEBUG_DEFAULT %d\n", 0);
-	fprintf(fp, "#define NDIM1         %d\n", ndim1);
-	fprintf(fp, "#define NDIM2         %d\n", ndim2);
-	fprintf(fp, "#define NDIM3         %d\n", ndim3);
-	fprintf(fp, "#define ONE           %d\n", 1);
+	fprintf(fp, "#define NX_DEFAULT    %dLL\n", problem_size);
+	fprintf(fp, "#define NY_DEFAULT    %dLL\n", problem_size);
+	fprintf(fp, "#define NZ_DEFAULT    %dLL\n", problem_size);
+	fprintf(fp, "#define NIT_DEFAULT   %dLL\n", nit);
+	fprintf(fp, "#define LM            %dLL\n", lm);
+	fprintf(fp, "#define LT_DEFAULT    %dLL\n", lt_default);
+	fprintf(fp, "#define DEBUG_DEFAULT %dLL\n", 0);
+	fprintf(fp, "#define NDIM1         %dLL\n", ndim1);
+	fprintf(fp, "#define NDIM2         %dLL\n", ndim2);
+	fprintf(fp, "#define NDIM3         %dLL\n", ndim3);
+	fprintf(fp, "#define ONE           %dLL\n", 1);
 }
 
 /* 
@@ -760,9 +760,9 @@ void write_cg_info(FILE *fp, char class_npb){
 		printf("setparams: Internal error: invalid class_npb type %c\n", class_npb);
 		exit(1);
 	}
-	fprintf( fp, "#define NA     %d\n", na );
-	fprintf( fp, "#define NONZER %d\n", nonzer );
-	fprintf( fp, "#define NITER  %d\n", niter );
+	fprintf( fp, "#define NA     %dLL\n", na );
+	fprintf( fp, "#define NONZER %dLL\n", nonzer );
+	fprintf( fp, "#define NITER  %dLL\n", niter );
 	fprintf( fp, "#define SHIFT  %s\n", shift );
 	fprintf( fp, "#define RCOND  %s\n", rcond );
 }
@@ -791,16 +791,16 @@ void write_ft_info(FILE *fp, char class_npb){
 	maxdim = nx;
 	if(ny > maxdim){maxdim = ny;}
 	if(nz > maxdim){maxdim = nz;}
-	fprintf(fp, "#define NX               %d\n", nx);
-	fprintf(fp, "#define NY               %d\n", ny);
-	fprintf(fp, "#define NZ               %d\n", nz);
-	fprintf(fp, "#define MAXDIM           %d\n", maxdim);
-	fprintf(fp, "#define NITER_DEFAULT    %d\n", niter);
-	fprintf(fp, "#define NXP              %d\n", nx+1);
-	fprintf(fp, "#define NYP              %d\n", ny);
-	fprintf(fp, "#define NTOTAL           %llu\n", (unsigned long long)nx*ny*nz);
-	fprintf(fp, "#define NTOTALP          %llu\n", (unsigned long long)(nx+1)*ny*nz);
-	fprintf(fp, "#define DEFAULT_BEHAVIOR %d\n", 1);
+	fprintf(fp, "#define NX               %dLL\n", nx);
+	fprintf(fp, "#define NY               %dLL\n", ny);
+	fprintf(fp, "#define NZ               %dLL\n", nz);
+	fprintf(fp, "#define MAXDIM           %dLL\n", maxdim);
+	fprintf(fp, "#define NITER_DEFAULT    %dLL\n", niter);
+	fprintf(fp, "#define NXP              %dLL\n", nx+1);
+	fprintf(fp, "#define NYP              %dLL\n", ny);
+	fprintf(fp, "#define NTOTAL           %lluULL\n", (unsigned long long)nx*ny*nz);
+	fprintf(fp, "#define NTOTALP          %lluULL\n", (unsigned long long)(nx+1)*ny*nz);
+	fprintf(fp, "#define DEFAULT_BEHAVIOR %dLL\n", 1);
 }
 
 /*
@@ -825,7 +825,7 @@ void write_ep_info(FILE *fp, char class_npb){
 		exit(1);
 	}
 	fprintf(fp, "#define\tCLASS\t \'%c\'\n", class_npb);
-	fprintf(fp, "#define\tM\t%d\n", m);
+	fprintf(fp, "#define\tM\t%dLL\n", m);
 }
 
 /* 
