@@ -1,0 +1,79 @@
+name: GPU Simulator
+
+# Optional, non-required check. The hosted runners have no GPU, so this builds
+# the eight CUDA benchmarks at class S and runs them on a simulated NVIDIA
+# H100 (https://github.com/pantheongpu/pantheonsim). Each benchmark verifies its
+# own result, and the job fails unless it prints "Verification = SUCCESSFUL".
+# A simulator cannot reproduce hardware-specific behavior or timing, so it
+# complements real-GPU testing and does not replace it.
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [ master ]
+    paths:
+      - "CUDA/**"
+      - ".github/workflows/gpu-sim.yml"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  cuda-class-s:
+    name: CUDA class S (CUDA 13.0 and simulated H100)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+        with:
+          persist-credentials: false
+
+      - name: Set up the simulated GPU and CUDA toolkit
+        uses: pantheongpu/setup-pantheonsim@deff5781e8adfd83dec98dd5242dcbc96a564773 # v0.1.10
+        with:
+          gpu: nvidia/h100
+          cuda-toolkit: "13.0"
+
+      # make.def hardcodes sm_61 (and `make` rewrites it from nvidia-smi, which
+      # the runner does not have). The simulator runs PTX only, so the line is
+      # replaced with compute_90 and a shared CUDA runtime, which it needs.
+      - name: Select the simulated architecture
+        run: |
+          sed -i 's|^COMPUTE_CAPABILITY.*|COMPUTE_CAPABILITY = -arch=compute_90 -cudart shared|' CUDA/config/make.def
+          grep '^COMPUTE_CAPABILITY' CUDA/config/make.def
+
+      # The benchmark directories are built directly (instead of through the
+      # top-level `make ep` and so on) so that get_gpu_arch.sh does not
+      # overwrite the line above.
+      - name: Build
+        run: |
+          for b in EP CG IS FT MG BT SP LU; do
+            make -C CUDA/$b CLASS=S
+          done
+          ls -l CUDA/bin
+
+      - name: Run and check verification
+        run: |
+          fail=0
+          for b in ep cg is ft mg bt sp lu; do
+            echo "::group::$b class S"
+            start=$SECONDS
+            rc=0
+            timeout 1200 vgpu run "./CUDA/bin/$b.S" > "$RUNNER_TEMP/$b.log" 2>&1 || rc=$?
+            cat "$RUNNER_TEMP/$b.log"
+            echo "exit code $rc, $((SECONDS - start)) s"
+            echo "::endgroup::"
+            if [ "$rc" -ne 0 ]; then
+              echo "::error::$b exited with $rc"; fail=1
+            elif grep -q -i -e 'VirtualGPU error' -e 'No Nvidia GPU' "$RUNNER_TEMP/$b.log"; then
+              echo "::error::$b: simulator error or no device"; fail=1
+            elif ! grep -q 'Verification *= *SUCCESSFUL' "$RUNNER_TEMP/$b.log"; then
+              echo "::error::$b did not report SUCCESSFUL verification"; fail=1
+            fi
+          done
+          exit $fail
